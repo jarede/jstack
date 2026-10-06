@@ -13,8 +13,8 @@ written spec and a plan.
    whose shape is open. Models from `../biblioteca/modelos.md`.
 4. Tests by the pragmatic rule — `../biblioteca/testes.md` — and verify every task —
    `../biblioteca/verificacao.md`.
-5. Review: arquitetural → skill `interrogar` on the branch; delimitado → one review of the diff
-   against the approved design. Handle findings with `../biblioteca/revisao-recebida.md`.
+5. Review: arquitetural → skill `interrogar` on the branch; delimitado → a fresh subagent (Claude
+   Code `Agent`, opencode `subagent`) reviews the diff against the approved design. Handle findings with `../biblioteca/revisao-recebida.md`.
 6. Finish — `../biblioteca/finalizacao.md`.
 
 ## Done means
@@ -23,6 +23,7 @@ written spec and a plan.
   its output).
 - Project checks green in this message; review findings fixed or declined with a reason.
 - Every step not run is listed as `pulado: <motivo>`.
+- A verdict (VERIFICADO / INCONCLUSIVO / BLOQUEADO) is given — `../biblioteca/verificacao.md`.
 
 ## Stop and ask when
 

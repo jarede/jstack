@@ -60,7 +60,13 @@ For any change that must preserve behaviour (a port, a migration, a refactor):
 2. Write the comparison as a script (`check-NN.sh`) that runs the new code on the same input and
    diffs against the golden file. A script can be re-run by a reviewer; an eyeball cannot.
 3. Keep the script and the golden files out of the implementer's reach: whoever writes the code
-   must not be able to edit the contract it is judged by.
+   must not be able to edit the contract it is judged by. When you implement it yourself, commit
+   the golden files and the script **in their own commit before any code**, and show
+   `git diff <that commit> -- <golden> <check>` empty at the end.
+4. Running the source may write data, send e-mails or files. **Ask before executing anything that
+   writes**, and prefer a non-production copy or the output of a past run.
+5. Where they live: `.agentes/` is local scratch (add it to `.git/info/exclude`); golden files that
+   should stay as permanent regression tests go to the project's `tests/` and are committed.
 
 ## Verdict
 

@@ -9,14 +9,15 @@ Adapted from superpowers `brainstorming` (Jesse Vincent, MIT) and pstack `archit
 
 Classify before the first question, and say the classification out loud so the user can override:
 
-- **spike** — a feasibility question ("dá pra…", "is it possible…"). Output is an answer, not code
-  you keep. Say the question and the cheapest probe in 2–3 sentences, get a nod, find out, report.
-- **delimitado** — a small change to a flow that already exists in this repo (a flag, a field, a
-  one-file fix). Short design in chat, approval, then build. No spec file.
+- **spike** — a feasibility question ("dá pra…", "is it possible…") or a read-only investigation
+  ("por que…"). Output is an answer, not code you keep. Say the question and the cheapest probe in 2–3 sentences, get a nod, find out, report.
+- **delimitado** — a small, contained unit of work: a change to a flow that already exists in this
+  repo (a flag, a field, a one-file fix), or one function, query or view to port. Short design in chat, approval, then build. No spec file.
 - **arquitetural** — a new project or subsystem, a change to how components fit, or an interface
   others depend on. Full path: questions, options, sectioned design, written spec, plan.
 
-When in doubt, take the heavier one. Size only goes up mid-task: if hidden complexity appears,
+When in doubt, take the heavier one. The size is provisional until you have read what the work
+touches (the source to port, the code around the bug); fix it then. After work starts, size only goes up: if hidden complexity appears,
 stop, say so, and move to the heavier path.
 
 ## Understand

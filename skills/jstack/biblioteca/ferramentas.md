@@ -14,7 +14,7 @@ model".
 
 | Action | Claude Code | opencode v2 |
 |---|---|---|
-| Ask the user | `AskUserQuestion` (2–4 options, recommended first) | `question` tool; without it, write the question with lettered options and **end the turn** |
+| Ask the user | `AskUserQuestion` (2–4 options, recommended first); if it is not available, lettered options in text and **end the turn** | `question` tool; without it, write the question with lettered options and **end the turn** |
 | Track the steps | the task / todo tool | no todo tool: write the checklist to `.agentes/jstack-<tema>.md` and update it as steps finish |
 | Delegate to a fresh agent | `Agent` tool (subagent) | `subagent` tool |
 | Run a non-Claude model | `opencode2 run --auto -m <model> "..."` (skill `orquestra`, `orchestrating-herdr-agents`) | same command from `shell`, or `subagent` with a configured agent |

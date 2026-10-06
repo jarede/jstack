@@ -19,7 +19,7 @@ Pick one playbook:
 
 | Playbook | Use for | Examples |
 |---|---|---|
-| [portagem](playbooks/portagem.md) | the new code must behave like existing code | "porta a procedure X para Python"; "migra os jobs do cron para o scheduler, mesma saída" |
+| [portagem](playbooks/portagem.md) | the new code must behave like existing code — ports, migrations **and refactors** | "porta a procedure X para Python"; "migra os jobs do cron para o scheduler, mesma saída"; "refatora o módulo X sem mudar o comportamento" |
 | [bug](playbooks/bug.md) | something behaves wrongly, or a read-only "why/investigate" | "o relatório está dobrando valores"; "por que o sync demora 40 min?" |
 | [feature](playbooks/feature.md) | new behaviour | "adiciona exportação CSV"; "cria um endpoint de saúde" |
 | [longa](playbooks/longa.md) | hours without the user watching | "roda a portagem das 15 procedures durante a noite" |
@@ -30,7 +30,8 @@ Pick one playbook:
 - **Fits none** (a factual question, a one-line explanation, a chat): say that no playbook applies
   and answer directly, without process.
 
-Tell the user the playbook you chose, in one line, before starting.
+If a question is needed to pick the playbook, ask it first; size and announce after the answer.
+Otherwise tell the user the playbook and size you chose, in one line, before starting.
 
 ## 2. Size
 
@@ -43,7 +44,9 @@ its steps run for each size. Size only goes up during the task, never down.
 Copy the chosen playbook's `## Steps` **verbatim** into the task list (Claude Code: the task/todo
 tool; opencode: `.agentes/jstack-<tema>.md`, see `biblioteca/ferramentas.md`). A step that does not
 run for this size, or that you decide to skip, **stays in the list** as `pulado: <motivo>` — never
-delete it. Also copy the playbook's `## Done means` as the final item.
+delete it. Also copy the playbook's `## Done means` as the final item. For `longa`, copy longa's
+steps and put the wrapped playbook's steps as sub-items of longa's step 4; both `## Done means`
+sections go at the end.
 
 ## 4. Run
 

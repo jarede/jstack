@@ -1,9 +1,9 @@
 # Playbook: bug
 
 Use for: something behaves wrongly (wrong value, error, hang, regression), or a read-only
-investigation ("por que…", "investiga…"). Size: an investigation ends at step 3; **delimitado** runs
-every step without a plan file; **arquitetural** (the fix restructures something) goes through
-`../biblioteca/design.md` before step 4.
+investigation ("por que…", "investiga…"). Size: an investigation is a **spike** and ends at step 3;
+**delimitado** runs every step without a plan file; **arquitetural** (the fix restructures something)
+adds the design approval in step 4.
 
 ## Steps
 
@@ -14,7 +14,8 @@ every step without a plan file; **arquitetural** (the fix restructures something
    hypothesis at a time — `../biblioteca/debugging.md`. Three failed fixes → question the premise.
 3. If the request is an investigation only: report facts and hypotheses separately, with evidence
    pointers (file:line, commit, query and its result), and stop here.
-4. Fix at the cause, never with a guard that silences. Add a regression test when the test path is
+4. Arquitetural: get the fix's design approved first — `../biblioteca/design.md`. Fix at the cause,
+   never with a guard that silences. Add a regression test when the test path is
    cheap and local — `../biblioteca/testes.md`; otherwise keep the reproduction before/after as the
    evidence (`pulado: <motivo>` for the test).
 5. Verify — `../biblioteca/verificacao.md`: the original reproduction now passes, the project's

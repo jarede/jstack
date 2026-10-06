@@ -12,12 +12,15 @@ be ported?" only; **delimitado** (one function or query) runs steps 1, 2, 4, 5, 
    dictionary with SELECT only); ask only what reading cannot answer.
 2. Capture **golden outputs** from the source before writing any code, and write `check-NN.sh`
    that compares new against golden — `../biblioteca/verificacao.md` (Golden outputs). Keep both
-   out of the implementer's write scope.
-3. Plan with verifiable tasks — `../biblioteca/plano.md`.
+   out of the implementer's write scope. If the source has side effects (writes, e-mails, files sent),
+   capture them in a non-production environment or by reading what a past run produced; never
+   trigger them against production to get a golden file.
+3. Arquitetural: write and get approval for a spec first — `../biblioteca/design.md` — then plan
+   with verifiable tasks — `../biblioteca/plano.md`.
 4. Execute: few tasks → inline; many → skill `orquestra` (models from `../biblioteca/modelos.md`).
    Fidelity first: copy behaviour, including the source's bugs, unless the user decides otherwise.
 5. Verify every task: the parity check, plus every row of "Checks that lie" and the port-specific
-   signals in `orquestra/reviewing.md` (guard the source lacks, wrong-case keys, rewrote instead of
+   signals in `../../orquestra/reviewing.md` (guard the source lacks, wrong-case keys, rewrote instead of
    copied). Run migrations twice.
 6. Large or risky port: skill `interrogar` with the faithful-port filter before finishing.
 7. Finish — `../biblioteca/finalizacao.md`.

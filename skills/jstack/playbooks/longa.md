@@ -6,8 +6,8 @@ this contract. Adapted from pstack's overnight guide (Lauren Tan, MIT).
 
 ## Steps
 
-1. Check the precondition: the user has already seen this kind of task succeed with supervision.
-   If not, recommend running it supervised first, and continue only if the user insists.
+1. Ask the user whether they have already seen this kind of task succeed with supervision. If not,
+   recommend running it supervised first, and continue only if the user insists.
 2. Write the contract to `.agentes/contrato.md` (template below) and get the user's approval of it.
 3. Create a fresh worktree for the run — `../biblioteca/plano.md` (Workspace).
 4. Run the wrapped playbook's steps under the loop discipline: one change, one check, one row in
