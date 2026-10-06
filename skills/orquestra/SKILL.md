@@ -41,34 +41,28 @@ Raise the implementer tier when a task stops being mechanical (design decisions,
 requirements). Raise the reviewer tier when tasks are tightly interdependent. Which model fills
 each tier is the user's call — see the next section.
 
-## Ask Which Models Before Dispatching Anything
+## Models Come From the User's Setup
 
-The defaults below are a starting point, not a decision you get to make silently. Cost, quota and
-which models the account can even reach are the user's business, and a run of fifteen tasks on the
-wrong tier is expensive in both directions — wasted money, or wasted hours re-reviewing sloppy
-work.
+Which model reviews and which implements is the user's decision, made once with `/jstack-setup` and
+stored in `~/.config/jstack/modelos.conf`. Read the roles **`orquestra revisor`** and **`orquestra
+implementador`** as described in [../jstack/biblioteca/modelos.md](../jstack/biblioteca/modelos.md).
+Cost, quota and which models the account can reach are the user's business, and a run of fifteen
+tasks on the wrong tier is expensive in both directions.
 
-**List what is actually available, then ask, then dispatch:**
+**Confirm before dispatching** that both ids are still in the real roster — a renamed id fails at
+dispatch with an error that looks like an auth problem:
 
 ```bash
 opencode2 models            # the real roster for this account, not what you remember
 ```
 
-Ask for both tiers in one question, offering the enumerated ids as options and saying what each
-choice costs in practice — "this tier caught seven plan defects last run", "this one is free and
-works when the brief is specific". Give your recommendation as the first option, and let the user
-override either tier independently.
-
-**Skip the question only when the user already named the models** ("use deepseek to review and
-muse-spark to implement"). Then confirm those ids appear in `opencode2 models` — a model id that
-has been renamed fails at dispatch with an error that looks like an auth problem.
+- The user named models in the request ("use deepseek to review") → use them for this run only.
+- File missing, role missing, or id gone from `opencode2 models` → ask once, offering the listed
+  ids, and suggest `/jstack-setup`. Never substitute a model yourself.
 
 **Ask again, mid-run, when a tier is visibly wrong:** an implementer that failed the same task
 twice, or a reviewer accepting work you later find broken. Report what happened and propose the
 raise; do not silently upgrade, because the cost is the user's.
-
-Exercised defaults, for the recommendation: reviewer `opencode-go/deepseek-v4.1-flash`,
-implementer `opencode/muse-spark-1.3-contributor-free`.
 
 ## Prepare the Environment, Then Dispatch
 
@@ -225,7 +219,7 @@ Three things go back to the engineer rather than being solved in the run:
 
 ## Red Flags
 
-- Picking the models yourself instead of asking — the cost is the user's, not yours
+- Picking the models yourself instead of reading `modelos.conf` or asking — the cost is the user's, not yours
 - Accepting "tests pass" without running them yourself — **the report is a claim, not evidence**
 - Reviewing every task personally because "it's faster" — you are the bottleneck and the author
 - Dispatching without a brief file, with the task text inline in the shell command

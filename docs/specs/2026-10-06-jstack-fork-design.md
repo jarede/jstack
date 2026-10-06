@@ -163,7 +163,7 @@ Rodar de novo atualiza.
 **Formato e padrões:**
 
 ```
-# jstack — modelo por papel. Gerado por /jstack-setup. Apague uma linha para voltar ao padrao.
+# jstack — modelo por papel. Gerado por /jstack-setup. Papel sem linha = perguntado na hora.
 # Variante opcional: provedor/modelo#variante (repassada ao opencode2 run -m).
 orquestra revisor:        opencode-go/deepseek-v4.1-flash
 orquestra implementador:  opencode/muse-spark-1.3-contributor-free

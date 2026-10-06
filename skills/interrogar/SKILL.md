@@ -39,10 +39,13 @@ intent is a **faithful port**, say so explicitly — it changes what counts as a
 the source in `.agentes/interrogate/fonte/` (e.g. the procedure text via the SQLcl MCP). The
 opencode2 reviewers run with MCPs disabled and cannot reach the database themselves.
 
-**3. Models.** Run `opencode2 models` and ask the user, in one question, which 2–3 to use (from
-different families: a DeepSeek, a Qwen/Kimi, a GPT/Gemini if available) and whether they want to
-watch. Skip it only if the user already named them — then confirm the ids exist. The Claude
-reviewer is always added, so **N = opencode2 reviewers + 1**.
+**3. Models.** Read the roles **`interrogar revisores`** (a list, one opencode2 reviewer per
+entry) and **`interrogar claude`** (the Claude subagent's model; `inherit` = the session's model)
+as described in [../jstack/biblioteca/modelos.md](../jstack/biblioteca/modelos.md). Confirm each
+id is still in `opencode2 models`. Models the user names in the request win for this run; a missing
+file, role or id → ask once with the listed ids and suggest `/jstack-setup`. Never pick a model
+yourself. Ask whether the user wants to watch. The Claude reviewer is always added, so
+**N = opencode2 reviewers + 1**.
 
 **4. Brief.** Build `.agentes/interrogate/brief.md` from
 [references/reviewer-prompt.md](references/reviewer-prompt.md), pasting in the intent, the path to
@@ -58,6 +61,7 @@ other write.
   User wants to watch → one pane (herdr) or Terminal tab (desktop) each, per
   **REQUIRED SUB-SKILL:** orchestrating-herdr-agents. Otherwise background processes with a log each.
 - Claude reviewer: Agent tool, `subagent_type: general-purpose`, `run_in_background: true`,
+  `model` from the `interrogar claude` role (omit it for `inherit`),
   prompt = "Read and follow <abs>/.agentes/interrogate/brief.md. Your label is claude." It writes
   its own `review-claude.md`, like the others.
 

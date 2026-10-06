@@ -28,9 +28,12 @@ Adapted from `arena` in pstack by Lauren Tan (MIT).
    golden file", "no new query against the source table", "one public function"). Write it to
    `$TMPDIR/arena-<slug>/rubrica.md`, **outside the repo** — candidates run with `--auto` and can
    read anything under `.agentes/`. Candidates never see the rubric; only the judge does.
-3. **The models** — run `opencode2 models` and ask the user, in one question, for N (2–3), the
-   runner models and the judge model (a family none of the runners use). Different models for
-   design-sensitive work; the same model N times when the work is generation-bound.
+3. **The models** — read the roles **`arena candidatos`** (a list; N = its length) and **`arena
+   juiz`** (a family none of the candidates use) as described in
+   [../jstack/biblioteca/modelos.md](../jstack/biblioteca/modelos.md), and confirm each id is still
+   in `opencode2 models`. Models the user names in the request win for this run; a missing file,
+   role or id → ask once with the listed ids and suggest `/jstack-setup`. Never pick a model
+   yourself.
 4. **Isolation** — one worktree per candidate, never two candidates in one tree:
    ```bash
    git worktree add -b arena/<slug>-1 ../<repo>-arena-<slug>-1 HEAD

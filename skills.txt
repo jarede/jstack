@@ -7,6 +7,7 @@
 # Nao use os dois para a mesma skill: o opencode 2 le as duas pastas e a skill apareceria duplicada.
 
 jstack                                       claude sob-demanda
+jstack-setup                                 claude sob-demanda
 orquestra                                    claude
 orchestrating-herdr-agents                   claude
 interrogar                                   claude
