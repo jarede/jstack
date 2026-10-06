@@ -1,33 +1,41 @@
 # Playbook: feature
 
+Adapted from pstack feature (Lauren Tan, MIT).
+
 Use for: new behaviour (a flag, an endpoint, a screen, a report, a module). Size: **spike** answers
-feasibility only; **delimitado** gets a short design in chat and no plan file; **arquitetural** gets a
-written spec and a plan.
+feasibility only; **delimitado** names the shape in chat and builds; **arquitetural** writes a spec
+or plan first.
 
 ## Steps
 
-1. Design for its size and get the user's approval before any code — `../biblioteca/design.md`.
-   Read the repo first; ask only what reading cannot answer, one question at a time.
-2. Plan (arquitetural only) — `../biblioteca/plano.md`; the user chooses how it runs.
-3. Execute: inline; or skill `orquestra` for many tasks on opencode; or skill `arena` for one task
-   whose shape is open. Models from `../biblioteca/modelos.md`.
-4. Tests by the pragmatic rule — `../biblioteca/testes.md` — and verify every task —
+1. Learn the affected code with skill `como-funciona` — `../../como-funciona/SKILL.md`. A one-file
+   change may skip it as `pulado: <motivo>`.
+2. Design for the size — `../biblioteca/design.md`. Name the data shape first. Architect sketch when
+   the change crosses a function boundary. No waiting: build after naming the shape.
+3. Write the throughput checkpoint as four todo items — `../biblioteca/plano.md`. Each item answered
+   or `n/a: <motivo>`.
+4. Execute: few tasks → inline; many tasks → skill `orquestra` (needs a written plan,
+   `../biblioteca/plano.md`, When to write a plan); several valid shapes → skill `arena`.
+5. Tests — `../biblioteca/testes.md` — and verification on the real surface —
    `../biblioteca/verificacao.md`.
-5. Review: arquitetural → skill `interrogar` on the branch; delimitado → a fresh subagent (Claude
-   Code `Agent`, opencode `subagent`) reviews the diff against the approved design. Handle findings with `../biblioteca/revisao-recebida.md`.
-6. Finish — `../biblioteca/finalizacao.md`.
+6. Small ordered commits. Verify each unit before the next. One change, one check.
+7. Review: contested design or arquitetural size → skill `interrogar`; else a fresh subagent
+   (Claude Code `Agent` tool, opencode `subagent` tool) reviews the diff against the design. Handle
+   findings with `../biblioteca/revisao-recebida.md`.
+8. Finish — `../biblioteca/finalizacao.md`.
 
 ## Done means
 
-- The behaviour the approved design describes is shown working (command, request or screen, with
-  its output).
+- The new behaviour is shown working on the real surface (command, request or screen, with output).
 - Project checks green in this message; review findings fixed or declined with a reason.
 - Every step not run is listed as `pulado: <motivo>`.
-- A verdict (VERIFICADO / INCONCLUSIVO / BLOQUEADO) is given — `../biblioteca/verificacao.md`.
+- A verdict (VERIFICADO / INCONCLUSIVO / BLOQUEADO) is given.
 
-## Stop and ask when
+## Pause only for
 
-- The design has not been approved for its size.
-- The work turns out bigger than its size (a delimitado that needs a new module): say so and move
-  to arquitetural.
-- A choice changes cost, data or an interface someone else depends on.
+- [Always pause](../biblioteca/autonomia.md) items (production writes, deploy, merge to shared
+  branches, messages to others). They park; work continues around them.
+- The work grows past its size (a delimitado needing a new module): say so, move to arquitetural.
+  Default is to keep going at the new size.
+- A choice changes cost, data, or an interface others depend on: state the default, keep working on
+  the rest meanwhile.
