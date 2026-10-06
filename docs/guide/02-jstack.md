@@ -2,8 +2,6 @@
 
 `/jstack` is the front door. Give it a goal, and it matches one of twenty-three playbooks. It copies that playbook's steps into the todo list and calls other skills as the steps need them. This page shows what a good prompt looks like, and how little of one you need.
 
-![A dispatcher pulls a switch lever to route robots on rail handcars toward lit gates, under a /jstack departure board listing BUG FIX, FEATURE, and INVESTIGATION.](./images/router.jpg)
-
 ## What happens to your prompt
 
 ```mermaid
