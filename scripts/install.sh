@@ -21,6 +21,11 @@ while read -r old new; do
     if is_our_link "$dir/$old"; then
       echo "rm    $old (renomeada para $new)"
       run rm "$dir/$old"
+    elif [ -e "$dir/$old" ] || [ -L "$dir/$old" ]; then
+      backup="$BACKUP_ROOT/$STAMP/renomeadas"
+      echo "bkp   $old (renomeada para $new) -> $backup/"
+      run mkdir -p "$backup"
+      run mv "$dir/$old" "$backup/"
     fi
   done
 done < <(renamed_entries)

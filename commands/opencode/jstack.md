@@ -1,8 +1,9 @@
 ---
 description: Run a task through the jstack process (portagem, bug, feature, longa)
 ---
-Read the file ~/.claude/skills/jstack/SKILL.md with your read tool and follow it exactly for this
-request. Read the playbook and library files it points to, relative to ~/.claude/skills/jstack/,
-when it tells you to. Do not try to load "jstack" with the skill tool: it is user-invoked only.
+Run `cat ~/.claude/skills/jstack/SKILL.md` with your shell tool and follow what it prints exactly
+for this request. Read the playbook and library files it points to when it tells you to; their paths are
+relative to the folder printed by `cd ~/.claude/skills/jstack && pwd -P`.
+Do not try to load "jstack" with the skill tool: it is user-invoked only.
 
 Request: $ARGUMENTS

@@ -94,6 +94,8 @@ def check_skill(folder, on_demand=False):
 
     for md in folder.rglob("*.md"):
         body = md.read_text(encoding="utf-8")
+        for m in re.finditer(r"\b(superpowers|pstack):[a-z][\w-]*", body):
+            errors.append(f"{md.relative_to(ROOT)}: depende de skill externa '{m.group(0)}'")
         body = re.sub(r"```.*?```", "", body, flags=re.S)  # ignore links inside code blocks
         for target in TICK_RE.findall(body):
             if not (md.parent / target).resolve().exists():

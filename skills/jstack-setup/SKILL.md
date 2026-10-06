@@ -28,7 +28,8 @@ Claude subagent options (role `interrogar claude` only): `opus`, `sonnet`, `haik
 ### 2. Load the current state
 
 If `~/.config/jstack/modelos.conf` exists, its values are the starting point; otherwise the
-defaults below. A line whose role is not in the list below belongs to a retired role: drop it and
+defaults below; a role with no line in an existing file starts from its default. A line whose role
+is not in the list below belongs to a retired role: drop it and
 tell the user. A value whose id is no longer detected is marked **precisa escolher**.
 
 ### 3. Show and confirm

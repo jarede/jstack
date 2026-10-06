@@ -79,6 +79,14 @@ class CheckTests(unittest.TestCase):
         self.assertIn("sumiu.md", r.stdout)
         self.assertNotIn("real.md", r.stdout)
 
+    def test_reference_to_external_process_skill_fails(self):
+        root = make_repo({"x": GOOD.format(n="x")}, "x claude\n")
+        (root / "skills" / "x" / "SKILL.md").write_text(
+            "---\n" + GOOD.format(n="x") + "\n---\n\nUse superpowers:writing-plans first.\n")
+        r = run_check(root)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("superpowers:", r.stdout)
+
     def test_unknown_third_column_fails(self):
         root = make_repo({"x": GOOD.format(n="x")}, "x claude talvez\n")
         self.assertEqual(run_check(root).returncode, 1)

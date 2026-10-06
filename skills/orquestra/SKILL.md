@@ -17,8 +17,10 @@ Three roles, not two. The tier that people skip — the **reviewer** — is the 
 | **Reviewer** (mid-tier agent) | Writes each task's brief, dispatches implementers, **waits for every delivery**, verifies them first-hand, sends work back, records what it found | Implement; change the plan to make a task close; **exit at dispatch** |
 | **Implementer** (cheap agent, one per task) | Executes exactly one task and reports with literal command output | Decide scope; skip verification |
 
-Prerequisite: a written plan with numbered, independently verifiable tasks. Get one from
-superpowers:brainstorming and superpowers:writing-plans first.
+Prerequisite: a written plan with numbered, independently verifiable tasks. Get one with
+`/jstack` (playbook feature or portagem, size arquitetural): see
+[../jstack/biblioteca/design.md](../jstack/biblioteca/design.md) and
+[../jstack/biblioteca/plano.md](../jstack/biblioteca/plano.md).
 
 ## When to Use
 

@@ -37,6 +37,7 @@ for pair in "claude:$CLAUDE_DIR" "opencode:$OPENCODE_DIR"; do
   for entry in "$dir"/*; do
     [ -f "$entry/SKILL.md" ] || continue
     is_our_link "$entry" && continue
+    renamed_entries | awk '{print $1}' | grep -qx "$(basename "$entry")" && continue
     [ -L "$entry" ] && continue
     printf "  %-46s %-9s just import %s %s\n" "$(basename "$entry")" "$target" "$(basename "$entry")" "$target"
     found=1
