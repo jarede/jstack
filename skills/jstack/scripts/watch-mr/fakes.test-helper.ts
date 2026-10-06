@@ -1,118 +1,153 @@
 import type {
+  ApprovalState,
   Check,
-  ChecksFastPath,
-  CommitRollup,
-  GitHubReader,
-  OpenPullRequest,
-  PrContext,
-  PullRequestFacts,
-  Repository,
+  FailedCheck,
+  ForgeReader,
+  PassedCheck,
+  PendingCheck,
+  SkippedCheck,
+  MergeRequestFacts,
+  MergeTrainRead,
+  MrContext,
+  OpenMergeRequest,
+  PipelineRecord,
+  Project,
   ReviewThread,
-  RollupPage,
 } from "./types.ts";
-import { parsePrNumber } from "./types.ts";
+import { parseMrIid } from "./types.ts";
 
 export interface FakeReaderOptions {
-  readonly facts?: Partial<Omit<PullRequestFacts, "context">>;
-  readonly fastPath?: ChecksFastPath;
-  readonly rollupPages?: readonly RollupPage[];
+  readonly facts?: Partial<Omit<MergeRequestFacts, "context">>;
+  readonly jobs?: readonly Check[];
   readonly threads?: readonly ReviewThread[];
-  readonly commitRollups?: readonly CommitRollup[];
-  readonly openPullRequests?: readonly OpenPullRequest[];
-  readonly origin?: Repository | null;
-  readonly current?: PrContext;
+  readonly pipelines?: readonly PipelineRecord[];
+  readonly approvals?: ApprovalState;
+  readonly openMergeRequests?: readonly OpenMergeRequest[];
+  readonly origin?: Project | null;
+  readonly current?: MrContext;
+  readonly defaultBranch?: string;
+  readonly train?: MergeTrainRead;
+  readonly bots?: readonly string[];
 }
 
-export function passingCheck(name = "ci"): Check {
+export function passingCheck(name = "ci"): PassedCheck {
   return {
     kind: "passed",
     name,
-    reportedState: "SUCCESS",
+    reportedState: "success",
     description: "",
     link: "",
-    workflow: "",
+    stage: "test",
   };
 }
 
-export function pendingCheck(name = "ci"): Check {
+export function pendingCheck(name = "ci"): PendingCheck {
   return {
     kind: "pending",
     name,
-    reportedState: "PENDING",
+    reportedState: "running",
     description: "",
     link: "",
-    workflow: "",
+    stage: "test",
   };
 }
 
-export function failedCheck(name = "ci"): Check {
+export function failedCheck(name = "ci"): FailedCheck {
   return {
     kind: "failed",
     name,
-    reportedState: "FAILURE",
+    reportedState: "failed",
     description: "",
     link: "",
-    workflow: "",
+    stage: "test",
+  };
+}
+
+export function skippedCheck(name = "ci"): SkippedCheck {
+  return {
+    kind: "skipped",
+    name,
+    reportedState: "skipped",
+    description: "",
+    link: "",
+    stage: "test",
   };
 }
 
 export function fakeReader(
   options: FakeReaderOptions = {}
-): GitHubReader & { readonly calls: readonly string[] } {
+): ForgeReader & { readonly calls: readonly string[] } {
   const calls: string[] = [];
   const context = options.current ?? {
-    owner: "owner",
-    repo: "repo",
-    number: parsePrNumber(1),
+    host: "git.example.test",
+    path: "group/project",
+    iid: parseMrIid(1),
   };
-  const defaults: PullRequestFacts = {
+  const defaults: MergeRequestFacts = {
     context,
-    mergeable: "MERGEABLE",
-    mergeStateStatus: "CLEAN",
-    reviewDecision: "APPROVED",
-    headRefOid: "head",
-    headRefName: "feature",
-    baseRefName: "main",
-    state: "OPEN",
+    state: "opened",
+    draft: false,
+    detailedMergeStatus: "mergeable",
+    mergeStatus: { kind: "ready" },
+    hasConflicts: false,
+    sha: "head",
+    sourceBranch: "feature",
+    targetBranch: "main",
     mergedAt: null,
-    isDraft: false,
+    headPipeline: { id: 7, status: "success", projectId: null },
+    blockingDiscussionsResolved: true,
   };
-  let page = 0;
   return {
     calls,
-    async originRepo() {
-      calls.push("originRepo");
+    bots: options.bots ?? [],
+    async originProject() {
+      calls.push("originProject");
       return options.origin === undefined
-        ? { owner: "owner", repo: "repo" }
+        ? { host: "git.example.test", path: "group/project" }
         : options.origin;
     },
-    async currentPr(pr) {
-      calls.push("currentPr");
-      return { ...context, number: pr ?? context.number };
+    async currentMr(project, iid) {
+      calls.push("currentMr");
+      return {
+        ...(project ?? context),
+        iid: iid ?? context.iid,
+      };
     },
-    async pullRequest(requested) {
-      calls.push("pullRequest");
+    async mergeRequest(requested) {
+      calls.push("mergeRequest");
       return { ...defaults, ...options.facts, context: requested };
     },
-    async openPullRequests() {
-      calls.push("openPullRequests");
-      return options.openPullRequests ?? [];
+    async openMergeRequests() {
+      calls.push("openMergeRequests");
+      return options.openMergeRequests ?? [];
     },
-    async checksFastPath() {
-      calls.push("checksFastPath");
-      return options.fastPath ?? { kind: "checks", checks: [passingCheck()] };
+    async defaultBranch() {
+      calls.push("defaultBranch");
+      return options.defaultBranch ?? "main";
     },
-    async checkRollupPage(_requested, after) {
-      calls.push(`checkRollupPage:${after ?? "null"}`);
-      return options.rollupPages?.[page++] ?? { checks: [], endCursor: null };
+    async pipelineJobs(_requested, pipeline) {
+      calls.push(
+        pipeline.projectId === null
+          ? "pipelineJobs"
+          : `pipelineJobs:${pipeline.projectId}`
+      );
+      return options.jobs ?? [passingCheck()];
     },
-    async reviewThreads() {
-      calls.push("reviewThreads");
+    async discussions() {
+      calls.push("discussions");
       return options.threads ?? [];
     },
-    async commitRollups() {
-      calls.push("commitRollups");
-      return options.commitRollups ?? [{ oid: "head", state: "SUCCESS" }];
+    async approvals() {
+      calls.push("approvals");
+      return options.approvals ?? { approved: true, approvalsLeft: 0 };
+    },
+    async pipelines(_requested, projectId) {
+      calls.push(projectId === null ? "pipelines" : `pipelines:${projectId}`);
+      return options.pipelines ?? [{ id: 1, sha: "head", status: "success" }];
+    },
+    async mergeTrain() {
+      calls.push("mergeTrain");
+      return options.train ?? { kind: "absent" };
     },
   };
 }

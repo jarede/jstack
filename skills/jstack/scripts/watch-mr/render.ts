@@ -1,8 +1,12 @@
 import type * as T from "./types.ts";
 export const renderJson = (verdict: T.WatcherVerdict): string =>
   `${JSON.stringify(verdict)}\n`;
-function ciCell(row: T.PrSnapshot): string {
-  if (row.kind !== "open") return "\u2014";
+function mrUrl(context: T.MrContext): string {
+  const path = `${context.path}/-/merge_requests/${context.iid}`;
+  return context.host === null ? path : `https://${context.host}/${path}`;
+}
+function ciCell(row: T.MrSnapshot): string {
+  if (row.kind !== "open") return "-";
   const was = row.ci.hadPreviousPassingCi ? ", was ✅" : "";
   switch (row.ci.kind) {
     case "ci-clean":
@@ -11,16 +15,16 @@ function ciCell(row: T.PrSnapshot): string {
       return `⏳ ${row.ci.pending.length} pending${was}`;
     case "ci-failing":
       return `❌ ${row.ci.failed.length} failed${row.ci.pending.length ? `, ${row.ci.pending.length} pending` : ""}${was}`;
-    case "ci-github-rejected":
-      return `❌ GitHub reports failing checks${was}`;
+    case "ci-forge-rejected":
+      return `❌ GitLab reports a failing pipeline${was}`;
     default: {
       const exhaustive: never = row.ci;
       return exhaustive;
     }
   }
 }
-function reviewCell(row: T.PrSnapshot): string {
-  if (row.kind !== "open") return "\u2014";
+function reviewCell(row: T.MrSnapshot): string {
+  if (row.kind !== "open") return "-";
   const open = row.threads.length;
   return row.reviewAutomationRunning
     ? open
@@ -30,38 +34,51 @@ function reviewCell(row: T.PrSnapshot): string {
       ? `📝 ${open} open`
       : "✅";
 }
-function mergeCell(row: T.PrSnapshot): string {
+function mergeCell(row: T.MrSnapshot): string {
   if (row.kind === "merged") return "✅ merged";
   if (row.kind === "closed") return "❌ closed";
-  if (row.facts.isDraft) return "⏸ draft";
-  if (row.facts.reviewDecision === "CHANGES_REQUESTED")
-    return "⚠️ changes requested";
-  return row.facts.mergeable === "CONFLICTING" ||
-    row.facts.mergeStateStatus === "DIRTY" ||
-    row.facts.mergeStateStatus === "CONFLICTING"
-    ? "⚠️ conflict"
-    : "✅";
+  if (row.facts.state === "locked") return "⏳ locked";
+  if (row.facts.draft || row.facts.mergeStatus.kind === "draft")
+    return "⏸ draft";
+  if (row.facts.mergeStatus.kind === "approval-wait")
+    return `⏳ ${row.facts.mergeStatus.raw}`;
+  if (row.facts.hasConflicts || row.facts.mergeStatus.kind === "conflict")
+    return "⚠️ conflict";
+  if (
+    row.facts.mergeStatus.kind === "unknown" ||
+    row.facts.mergeStatus.kind === "unknown-poll"
+  )
+    return `❓ ${row.facts.mergeStatus.raw}`;
+  return "✅";
 }
-export function renderStatusTable(rows: T.NonEmpty<T.PrSnapshot>): string {
-  const lines = ["| PR | CI | Review | Merge |", "| --- | --- | --- | --- |"];
+export function renderStatusTable(rows: T.NonEmpty<T.MrSnapshot>): string {
+  const lines = ["| MR | CI | Review | Merge |", "| --- | --- | --- | --- |"];
   for (const row of rows) {
-    const url = `https://github.com/${row.context.owner}/${row.context.repo}/pull/${row.context.number}`;
+    const url = mrUrl(row.context);
     lines.push(
-      `| [#${row.context.number}](${url}) | ${ciCell(row)} | ${reviewCell(row)} | ${mergeCell(row)} |`
+      `| [!${row.context.iid}](${url}) | ${ciCell(row)} | ${reviewCell(row)} | ${mergeCell(row)} |`
     );
   }
   return `${lines.join("\n")}\n`;
 }
+// A comment body is untrusted data written by anyone who can comment. Tabs and
+// ANSI escapes would shift the columns below or rewrite the terminal, so they
+// are dropped before the body joins a status line.
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
+function bodyPreview(body: string): string {
+  const [firstLine = ""] = body.replace(/\r/g, "").split("\n");
+  return firstLine.replace(CONTROL_CHARACTERS, " ").slice(0, 180);
+}
 function threadLine(thread: T.ReviewThread): string {
-  const comment = thread.firstComment;
+  const note = thread.firstNote;
   return [
     thread.id,
-    comment?.path ?? "None",
-    comment?.line ?? "None",
-    comment?.authorLogin ?? "None",
-    `isBugBot=${thread.isBugbot}`,
-    `bugbotReviewPasses=${thread.bugbotReviewPasses}`,
-    (comment?.body ?? "").split(/\r?\n/, 1)[0]?.slice(0, 180) ?? "",
+    note?.path ?? "None",
+    note?.line ?? "None",
+    note?.authorUsername ?? "None",
+    `isReviewBot=${thread.isReviewBot}`,
+    `botReviewPasses=${thread.botReviewPasses}`,
+    bodyPreview(note?.body ?? ""),
   ].join(" ");
 }
 type StatusQueryBlocker = {
@@ -74,15 +91,15 @@ function renderBlocker(blocker: T.MergeBlocker | StatusQueryBlocker): string {
     case "merge-conflicts":
       return [
         "BLOCKER: merge-conflicts",
-        `pr=${blocker.pr.number}`,
-        `mergeable=${blocker.facts.mergeable}`,
-        `mergeStateStatus=${blocker.facts.mergeStateStatus}`,
-        "action=resolve merge conflicts before waiting for CI",
+        `mr=${blocker.mr.iid}`,
+        `detailed_merge_status=${blocker.facts.detailedMergeStatus}`,
+        `has_conflicts=${blocker.facts.hasConflicts}`,
+        "action=report the conflict; do not rebase or retarget",
       ].join("\n");
     case "review-threads":
       return [
         "BLOCKER: review-threads",
-        `pr=${blocker.pr.number}`,
+        `mr=${blocker.mr.iid}`,
         `unresolved=${blocker.threads.length}`,
         ...blocker.threads.map(threadLine),
       ].join("\n");
@@ -92,28 +109,33 @@ function renderBlocker(blocker: T.MergeBlocker | StatusQueryBlocker): string {
         (check) =>
           `${check.name} ${check.reportedState} ${check.description} ${check.link}`
       );
-      if (blocker.ci.kind === "ci-github-rejected")
+      if (blocker.ci.kind === "ci-forge-rejected")
         details.push(
-          `mergeStateStatus=${blocker.ci.github.mergeStateStatus}`,
-          `headRollupState=${blocker.ci.github.headRollupState}`
+          `detailed_merge_status=${blocker.ci.forge.detailedMergeStatus}`,
+          `pipelineStatus=${blocker.ci.forge.pipelineStatus}`
         );
       return [
         "BLOCKER: failing-checks",
-        `pr=${blocker.pr.number}`,
+        `mr=${blocker.mr.iid}`,
         `failed=${failed.length}`,
         ...details,
       ].join("\n");
     }
     case "merge-gate": {
+      if (blocker.reason === "unknown-merge-status")
+        return [
+          "BLOCKER: unknown-merge-status",
+          `mr=${blocker.mr.iid}`,
+          `detailed_merge_status=${blocker.raw}`,
+          "action=report the unknown merge status; do not treat it as ready",
+        ].join("\n");
       const action =
         blocker.reason === "closed-without-merge"
-          ? "restore or remove the closed PR from the queued stack"
-          : blocker.reason === "draft-pr"
-            ? "mark the PR ready for review before waiting for the merge queue"
-            : "resolve the changes-requested review before waiting for the merge queue";
+          ? "restore or remove the closed MR from the queued stack"
+          : "mark the MR ready for review before waiting for the merge train";
       return [
         `BLOCKER: ${blocker.reason}`,
-        `pr=${blocker.pr.number}`,
+        `mr=${blocker.mr.iid}`,
         `action=${action}`,
       ].join("\n");
     }
@@ -122,7 +144,7 @@ function renderBlocker(blocker: T.MergeBlocker | StatusQueryBlocker): string {
         "BLOCKER: status-query",
         `failures=${blocker.failures}`,
         `detail=${blocker.failure.detail}`,
-        "action=verify current PR context, GitHub authentication, and API availability, then rearm",
+        "action=verify the project path, GitLab authentication, and API availability, then rearm",
       ].join("\n");
     default: {
       const exhaustive: never = blocker;
@@ -130,37 +152,56 @@ function renderBlocker(blocker: T.MergeBlocker | StatusQueryBlocker): string {
     }
   }
 }
+function waitLine(verdict: Extract<T.WatcherVerdict, { readonly kind: "WAITING" }>): string {
+  const iid = verdict.frontier.iid;
+  switch (verdict.reason.kind) {
+    case "pending-checks":
+      return `WAITING: frontier=!${iid}; ${verdict.reason.pending.length} check${verdict.reason.pending.length === 1 ? "" : "s"} pending\n`;
+    case "merge-train":
+      return `WAITING: frontier=!${iid} is blocker-free; waiting for merge train (${verdict.reason.unmergedCount} MR${verdict.reason.unmergedCount === 1 ? "" : "s"} unmerged; trains ${verdict.reason.trains})\n`;
+    case "approval-wait":
+      return `WAITING: frontier=!${iid}; approval wait (${verdict.reason.status}; approvals left ${verdict.reason.approvalsLeft ?? "unknown"})\n`;
+    case "unknown-merge-status":
+      return `WAITING: frontier=!${iid}; unknown merge status ${verdict.reason.raw}; polling again\n`;
+    default: {
+      const exhaustive: never = verdict.reason;
+      return exhaustive;
+    }
+  }
+}
 export function renderPretty(verdict: T.WatcherVerdict): string {
   switch (verdict.kind) {
     case "QUEUE":
-      return `QUEUE: captured ${verdict.queue.length} PR${verdict.queue.length === 1 ? "" : "s"} bottom-to-top: ${verdict.queue.map((pr) => `#${pr.number}`).join(",")}\n`;
+      return `QUEUE: captured ${verdict.queue.length} MR${verdict.queue.length === 1 ? "" : "s"} bottom-to-top: ${verdict.queue.map((mr) => `!${mr.iid}`).join(",")}\n`;
     case "STATUS":
       return renderStatusTable(verdict.rows);
     case "WAITING":
-      return verdict.reason.kind === "pending-checks"
-        ? `WAITING: frontier=#${verdict.frontier.number}; ${verdict.reason.pending.length} check${verdict.reason.pending.length === 1 ? "" : "s"} pending\n`
-        : `WAITING: frontier=#${verdict.frontier.number} is blocker-free; waiting for merge queue (${verdict.reason.unmergedCount} PR${verdict.reason.unmergedCount === 1 ? "" : "s"} unmerged)\n`;
+      return waitLine(verdict);
     case "ADVANCE":
-      return `ADVANCE: merged #${verdict.merged.number}; next=#${verdict.frontier.number}; remaining=${verdict.remaining}\n`;
+      return `ADVANCE: merged !${verdict.merged.iid}; next=!${verdict.frontier.iid}; remaining=${verdict.remaining}\n`;
     case "RETRY":
-      return `RETRY: GitHub status query failed; retrying in ${verdict.retryInSeconds}s\ndetail=${verdict.failure.detail}\n`;
+      return `RETRY: GitLab status query failed; retrying in ${verdict.retryInSeconds}s\ndetail=${verdict.failure.detail}\n`;
     case "BLOCKER":
       return `${renderBlocker(verdict.blocker)}\n`;
     case "READY": {
       const detail =
-        verdict.scope.kind === "single" && verdict.scope.pr.kind === "ready-pr"
-          ? `\nmergeStateStatus=${verdict.scope.pr.proof.ci.github.mergeStateStatus}\nreviewDecision=${verdict.scope.pr.proof.gate.reviewDecision}\nisDraft=${verdict.scope.pr.proof.gate.draft === "draft-allowed"}${verdict.scope.pr.proof.gate.draft === "draft-allowed" ? "\nnote=draft allowed (--allow-draft); leave draft \u2014 do not mark ready" : ""}`
+        verdict.scope.kind === "single" && verdict.scope.mr.kind === "ready-mr"
+          ? `\ndetailed_merge_status=${verdict.scope.mr.proof.ci.forge.detailedMergeStatus}\napproval=${verdict.scope.mr.proof.gate.approval}\nisDraft=${verdict.scope.mr.proof.gate.draft === "draft-allowed"}${verdict.scope.mr.proof.gate.draft === "draft-allowed" ? "\nnote=draft allowed (--allow-draft); leave the draft; do not mark it ready" : ""}`
           : "";
       return `READY: no merge conflicts, no unresolved review threads, no failing or pending checks${detail}\n`;
     }
     case "COMPLETE":
-      return `COMPLETE: queued stack merged (${verdict.queue.length} PR${verdict.queue.length === 1 ? "" : "s"})\n`;
+      return `COMPLETE: queued stack merged (${verdict.queue.length} MR${verdict.queue.length === 1 ? "" : "s"})\n`;
     case "TIMEOUT":
       if (verdict.reason.kind === "pending-checks")
         return "TIMEOUT: checks still pending\n";
+      if (verdict.reason.kind === "approval-wait")
+        return `TIMEOUT: approval still waiting (${verdict.reason.status})\n`;
+      if (verdict.reason.kind === "unknown-merge-status")
+        return `TIMEOUT: merge status still unknown (${verdict.reason.raw})\n`;
       if (verdict.reason.kind === "status-unavailable")
-        return "TIMEOUT: GitHub status remained unavailable\n";
-      return `TIMEOUT: queued stack still has ${verdict.reason.unmergedCount} PR${verdict.reason.unmergedCount === 1 ? "" : "s"} unmerged; frontier=#${verdict.reason.frontier.number}\n`;
+        return "TIMEOUT: GitLab status remained unavailable\n";
+      return `TIMEOUT: queued stack still has ${verdict.reason.unmergedCount} MR${verdict.reason.unmergedCount === 1 ? "" : "s"} unmerged; frontier=!${verdict.reason.frontier.iid}\n`;
     default: {
       const exhaustive: never = verdict;
       return exhaustive;

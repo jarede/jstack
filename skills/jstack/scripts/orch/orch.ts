@@ -81,6 +81,7 @@ interface GateResolveOptions {
 
 interface FrontierSetOptions {
   readonly repo?: string;
+  readonly project?: string;
   readonly prs?: readonly number[];
 }
 
@@ -99,7 +100,7 @@ function positiveInteger(value: string): number {
 function prList(value: string): readonly number[] {
   const parts = value.split(",");
   if (parts.some((part) => part.length === 0)) {
-    throw new InvalidArgumentError("requires a comma-separated PR list");
+    throw new InvalidArgumentError("requires a comma-separated merge request list");
   }
   return parts.map(positiveInteger);
 }
@@ -230,6 +231,7 @@ async function runStore<T>(
       io.stderr(`stealing store lock held by pid ${holder}\n`),
     onStaleLock: (holder) =>
       io.stderr(`replacing stale store lock (pid ${holder} is dead)\n`),
+    onStackExcluded: (detail) => io.stderr(`stack: excluded ${detail}\n`),
   });
   try {
     const result = await operation(store);
@@ -472,9 +474,9 @@ function createProgram(io: Io): Command {
 
   const frontier = program
     .command("frontier")
-    .description("manage the Graphite stack frontier")
+    .description("manage the GitLab merge-request stack frontier")
     .action(() => requireSubcommand(program));
-  leaf(frontier, "set", "discover the Graphite stack and set the frontier")
+  leaf(frontier, "set", "discover the GitLab stack and set the frontier")
     .addOption(
       new Option(
         "--repo <dir>",
@@ -482,8 +484,12 @@ function createProgram(io: Io): Command {
       ).env("ORCH_REPO")
     )
     .option(
+      "--project <group/project>",
+      "GitLab project path (default is the origin remote)"
+    )
+    .option(
       "--prs <n,...>",
-      "optional expected pull request order pin",
+      "optional expected merge request order pin",
       prList
     )
     .action((options: FrontierSetOptions) =>
@@ -493,6 +499,7 @@ function createProgram(io: Io): Command {
         (store) =>
           store.frontier.set({
             repo: frontierRepo(options),
+            project: options.project,
             prs: options.prs,
           }),
         frontierLine

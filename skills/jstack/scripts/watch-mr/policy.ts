@@ -1,188 +1,271 @@
-import { WatcherQueryError, resolveChecks } from "./github.ts";
+import { WatcherQueryError, resolveChecks, syntheticPending } from "./gitlab.ts";
 import type * as T from "./types.ts";
 import { nonEmpty } from "./types.ts";
-export function assessGitHubMerge(args: {
-  readonly mergeStateStatus: T.MergeStateStatus;
-  readonly headRollupState: T.RollupState;
-}): T.GitHubMergeAssessment {
-  if (args.mergeStateStatus === "BLOCKED") {
-    if (args.headRollupState === "ERROR" || args.headRollupState === "FAILURE")
-      return {
-        kind: "refused",
-        mergeStateStatus: args.mergeStateStatus,
-        headRollupState: args.headRollupState,
-      };
+
+const failedPipeline = (
+  status: string | undefined
+): status is "failed" | "canceled" =>
+  status === "failed" || status === "canceled";
+
+export function assessForgeMerge(args: {
+  readonly facts: T.MergeRequestFacts;
+  readonly failed: T.NonEmpty<T.FailedCheck> | null;
+  readonly pending: T.NonEmpty<T.PendingCheck> | null;
+}): T.ForgeMergeAssessment {
+  const pipelineStatus = args.facts.headPipeline?.status;
+  if (
+    args.facts.mergeStatus.kind === "pipeline-wait" &&
+    args.facts.mergeStatus.raw === "ci_must_pass" &&
+    args.failed === null &&
+    args.pending === null &&
+    failedPipeline(pipelineStatus)
+  )
     return {
-      kind: "allowed",
-      basis: "rollup",
-      mergeStateStatus: args.mergeStateStatus,
-      headRollupState: args.headRollupState,
+      kind: "refused",
+      detailedMergeStatus: args.facts.detailedMergeStatus,
+      pipelineStatus,
     };
-  }
   return {
     kind: "allowed",
-    basis: "merge-state",
-    mergeStateStatus: args.mergeStateStatus,
-    headRollupState: args.headRollupState,
+    detailedMergeStatus: args.facts.detailedMergeStatus,
   };
 }
-async function mergeAssessment(
-  reader: T.GitHubReader,
-  facts: T.PullRequestFacts
-) {
-  const commits = await reader.commitRollups(facts.context);
-  const headRollupState =
-    facts.headRefOid === null
-      ? null
-      : (commits.find((commit) => commit.oid === facts.headRefOid)?.state ??
-        null);
-  return {
-    hadPreviousPassingCi: commits.some(
-      (commit) => commit.oid !== facts.headRefOid && commit.state === "SUCCESS"
-    ),
-    github: assessGitHubMerge({
-      mergeStateStatus: facts.mergeStateStatus,
-      headRollupState,
-    }),
-  };
+function previousPassingCi(
+  facts: T.MergeRequestFacts,
+  pipelines: readonly T.PipelineRecord[]
+): boolean {
+  return pipelines.some(
+    (pipeline) => pipeline.sha !== facts.sha && pipeline.status === "success"
+  );
 }
-const AUTOMATION_TOKENS = [
-  "bugbot",
-  "security review",
-  "pr review automation",
-  "review automation",
-] as const;
+const SYNTHETIC_THREAD: T.ReviewThread = {
+  id: "blocking-discussions",
+  firstNote: null,
+  isReviewBot: false,
+  botReviewPasses: 0,
+};
+function blockingThreads(
+  facts: T.MergeRequestFacts,
+  threads: readonly T.ReviewThread[]
+): readonly T.ReviewThread[] {
+  if (threads.length > 0) return threads;
+  if (
+    facts.mergeStatus.kind === "threads" ||
+    facts.blockingDiscussionsResolved === false
+  )
+    return [SYNTHETIC_THREAD];
+  return threads;
+}
 export async function readSnapshot(args: {
-  readonly reader: T.GitHubReader;
-  readonly context: T.PrContext;
+  readonly reader: T.ForgeReader;
+  readonly context: T.MrContext;
   readonly pendingHistory: "include" | "omit";
   readonly allowDraft: boolean;
-}): Promise<T.PrSnapshot> {
-  const facts = await args.reader.pullRequest(args.context);
-  if (facts.state === "MERGED" || facts.mergedAt !== null)
+}): Promise<T.MrSnapshot> {
+  const facts = await args.reader.mergeRequest(args.context);
+  if (facts.state === "merged" || facts.mergedAt !== null)
     return { kind: "merged", context: args.context, facts };
-  if (facts.state === "CLOSED")
+  if (facts.state === "closed")
     return { kind: "closed", context: args.context, facts };
-  const threads = await args.reader.reviewThreads(args.context);
-  const checks = await resolveChecks(args.reader, args.context);
+  if (facts.state === "locked")
+    return {
+      kind: "open",
+      context: args.context,
+      facts,
+      threads: [],
+      approvals: null,
+      reviewAutomationRunning: false,
+      ci: {
+        kind: "ci-pending",
+        source: "pipeline-jobs",
+        all: [syntheticPending("pipeline", "locked")],
+        failed: [],
+        pending: [syntheticPending("pipeline", "locked")],
+        hadPreviousPassingCi: false,
+      },
+    };
+  const threads = blockingThreads(
+    facts,
+    await args.reader.discussions(args.context)
+  );
+  const checks = await resolveChecks(args.reader, facts);
   const failed = nonEmpty(
     checks.checks.filter(
       (check): check is T.FailedCheck => check.kind === "failed"
     )
   );
-  const pending = nonEmpty(
+  let pending = nonEmpty(
     checks.checks.filter(
       (check): check is T.PendingCheck => check.kind === "pending"
     )
   );
-  let ci: T.CiState;
+  if (
+    pending === null &&
+    failed === null &&
+    (facts.mergeStatus.kind === "pipeline-wait" ||
+      facts.mergeStatus.kind === "unknown-poll") &&
+    !failedPipeline(facts.headPipeline?.status) &&
+    // ci_must_pass against a green head pipeline is GitLab's verdict lagging
+    // the pipeline, not work in flight. Synthesising a pending check there
+    // made the row permanently WAITING with zero pending jobs.
+    facts.headPipeline?.status !== "success"
+  )
+    pending = [syntheticPending("pipeline", facts.detailedMergeStatus)];
+  const reviewAutomationRunning =
+    checks.checks.some(
+      (check) =>
+        check.kind === "pending" &&
+        args.reader.bots.some((bot) =>
+          check.name.toLowerCase().includes(bot.toLowerCase())
+        )
+    ) || threads.some((thread) => thread.isReviewBot);
   if (failed === null && pending !== null && args.pendingHistory === "omit")
+    return {
+      kind: "open",
+      context: args.context,
+      facts,
+      threads,
+      approvals: null,
+      reviewAutomationRunning,
+      ci: {
+        kind: "ci-pending",
+        source: checks.source,
+        all: checks.checks,
+        failed: [],
+        pending,
+        hadPreviousPassingCi: false,
+      },
+    };
+  const pipelines = await args.reader.pipelines(
+    args.context,
+    facts.headPipeline?.projectId ?? null
+  );
+  const approvals =
+    facts.state === "opened" ? await args.reader.approvals(args.context) : null;
+  const hadPreviousPassingCi = previousPassingCi(facts, pipelines);
+  const base = {
+    source: checks.source,
+    all: checks.checks,
+    hadPreviousPassingCi,
+  };
+  const forge = assessForgeMerge({ facts, failed, pending });
+  let ci: T.CiState;
+  if (failed !== null)
     ci = {
-      kind: "ci-pending",
-      source: checks.source,
-      all: checks.checks,
+      ...base,
+      kind: "ci-failing",
+      failed,
+      pending: pending ?? [],
+      forge,
+    };
+  else if (forge.kind === "refused")
+    ci = {
+      ...base,
+      kind: "ci-forge-rejected",
       failed: [],
-      pending,
-      hadPreviousPassingCi: false,
+      pending: pending ?? [],
+      forge,
     };
-  else {
-    const merge = await mergeAssessment(args.reader, facts);
-    const base = {
-      source: checks.source,
-      all: checks.checks,
-      hadPreviousPassingCi: merge.hadPreviousPassingCi,
+  else if (pending !== null)
+    ci = { ...base, kind: "ci-pending", failed: [], pending };
+  else
+    ci = {
+      ...base,
+      kind: "ci-clean",
+      failed: [],
+      pending: [],
+      forge,
     };
-    if (failed !== null)
-      ci = {
-        ...base,
-        kind: "ci-failing",
-        failed,
-        pending: pending ?? [],
-        github: merge.github,
-      };
-    else if (merge.github.kind === "refused")
-      ci = {
-        ...base,
-        kind: "ci-github-rejected",
-        failed: [],
-        pending: pending ?? [],
-        github: merge.github,
-      };
-    else if (pending !== null)
-      ci = { ...base, kind: "ci-pending", failed: [], pending };
-    else
-      ci = {
-        ...base,
-        kind: "ci-clean",
-        failed: [],
-        pending: [],
-        github: merge.github,
-      };
-  }
   return {
     kind: "open",
     context: args.context,
     facts,
     threads,
     ci,
-    reviewAutomationRunning: checks.checks.some(
-      (check) =>
-        check.kind === "pending" &&
-        AUTOMATION_TOKENS.some((token) =>
-          check.name.toLowerCase().includes(token)
-        )
-    ),
+    approvals,
+    reviewAutomationRunning,
   };
 }
-const conflictBlocker = (row: T.PrSnapshot): T.MergeBlocker | null =>
+const locked = (row: T.MrSnapshot): boolean =>
+  row.kind === "open" && row.facts.state === "locked";
+const conflictBlocker = (row: T.MrSnapshot): T.MergeBlocker | null =>
   row.kind === "open" &&
-  (row.facts.mergeable === "CONFLICTING" ||
-    row.facts.mergeStateStatus === "DIRTY" ||
-    row.facts.mergeStateStatus === "CONFLICTING")
-    ? { kind: "merge-conflicts", pr: row.context, facts: row.facts }
+  !locked(row) &&
+  (row.facts.hasConflicts || row.facts.mergeStatus.kind === "conflict")
+    ? { kind: "merge-conflicts", mr: row.context, facts: row.facts }
     : null;
-function threadBlocker(row: T.PrSnapshot): T.MergeBlocker | null {
-  if (row.kind !== "open") return null;
+function threadBlocker(row: T.MrSnapshot): T.MergeBlocker | null {
+  if (row.kind !== "open" || locked(row)) return null;
   const threads = nonEmpty(row.threads);
   return threads === null
     ? null
-    : { kind: "review-threads", pr: row.context, threads };
+    : { kind: "review-threads", mr: row.context, threads };
 }
-const ciBlocker = (row: T.PrSnapshot): T.MergeBlocker | null =>
+const ciBlocker = (row: T.MrSnapshot): T.MergeBlocker | null =>
   row.kind === "open" &&
-  (row.ci.kind === "ci-failing" || row.ci.kind === "ci-github-rejected")
-    ? { kind: "failing-checks", pr: row.context, ci: row.ci }
+  !locked(row) &&
+  (row.ci.kind === "ci-failing" || row.ci.kind === "ci-forge-rejected")
+    ? { kind: "failing-checks", mr: row.context, ci: row.ci }
     : null;
-function gateReason(
-  row: T.PrSnapshot,
-  allowDraft: boolean
-): T.MergeGateReason | null {
-  if (row.kind === "merged") return null;
-  if (row.kind === "closed") return "closed-without-merge";
-  if (row.facts.isDraft && !allowDraft) return "draft-pr";
-  return row.facts.reviewDecision === "CHANGES_REQUESTED"
-    ? "changes-requested"
-    : null;
+function isDraft(row: T.MrSnapshot): boolean {
+  return (
+    row.kind === "open" &&
+    (row.facts.draft || row.facts.mergeStatus.kind === "draft")
+  );
 }
 function gateBlocker(
-  row: T.PrSnapshot,
+  row: T.MrSnapshot,
   allowDraft: boolean
 ): T.MergeBlocker | null {
-  const reason = gateReason(row, allowDraft);
-  return reason === null ||
-    (reason === "draft-pr" &&
-      row.kind === "open" &&
-      row.ci.kind === "ci-pending")
-    ? null
-    : { kind: "merge-gate", pr: row.context, reason };
+  if (locked(row)) return null;
+  if (row.kind === "closed")
+    return { kind: "merge-gate", mr: row.context, reason: "closed-without-merge" };
+  if (row.kind !== "open") return null;
+  if (row.facts.mergeStatus.kind === "unknown")
+    return {
+      kind: "merge-gate",
+      mr: row.context,
+      reason: "unknown-merge-status",
+      raw: row.facts.mergeStatus.raw,
+    };
+  if (isDraft(row) && !allowDraft && row.ci.kind !== "ci-pending")
+    return { kind: "merge-gate", mr: row.context, reason: "draft-mr" };
+  return null;
+}
+function localWait(row: T.MrSnapshot): T.WaitReason | null {
+  if (row.kind !== "open") return null;
+  if (row.facts.state === "locked")
+    return { kind: "unknown-merge-status", raw: "locked" };
+  if (row.facts.mergeStatus.kind === "unknown-poll")
+    return { kind: "unknown-merge-status", raw: row.facts.mergeStatus.raw };
+  if (row.ci.kind === "ci-pending")
+    return { kind: "pending-checks", pending: row.ci.pending };
+  if (row.facts.mergeStatus.kind === "approval-wait")
+    return {
+      kind: "approval-wait",
+      status: row.facts.mergeStatus.raw,
+      approvalsLeft: row.approvals?.approvalsLeft ?? null,
+    };
+  // A settled head pipeline satisfies ci_must_pass, as on GitHub: the forge
+  // status is a cached verdict and the pipeline is the fact. Without this the
+  // row is both ci-clean and WAITING, which contradicts its own proof.
+  if (
+    row.facts.mergeStatus.kind === "pipeline-wait" &&
+    row.facts.headPipeline?.status !== "success"
+  )
+    return {
+      kind: "pending-checks",
+      pending: [syntheticPending("pipeline", row.facts.detailedMergeStatus)],
+    };
+  return null;
 }
 function readyContribution(
-  row: T.PrSnapshot,
+  row: T.MrSnapshot,
   allowDraft: boolean
-): T.ReadyPr | T.MergedPr | null {
+): T.ReadyMr | T.MergedMr | null {
   if (row.kind === "merged")
     return {
-      kind: "merged-pr",
+      kind: "merged-mr",
       context: row.context,
       mergedAt: row.facts.mergedAt,
     };
@@ -191,30 +274,29 @@ function readyContribution(
     row.ci.kind !== "ci-clean" ||
     row.threads.length !== 0 ||
     conflictBlocker(row) !== null ||
-    gateReason(row, allowDraft) !== null
+    gateBlocker(row, allowDraft) !== null ||
+    localWait(row) !== null
   )
     return null;
-  const reviewDecision = row.facts.reviewDecision;
-  if (reviewDecision === "CHANGES_REQUESTED") return null;
   return {
-    kind: "ready-pr",
+    kind: "ready-mr",
     context: row.context,
     proof: {
       mergeability: "clear",
       threads: [],
       ci: row.ci,
       gate: {
-        state: "OPEN",
-        reviewDecision,
-        draft: row.facts.isDraft ? "draft-allowed" : "not-draft",
+        state: "opened",
+        approval: row.approvals?.approved === true ? "approved" : "not-required",
+        draft: isDraft(row) ? "draft-allowed" : "not-draft",
       },
     },
   };
 }
-export function classifyPr(
-  row: T.PrSnapshot,
+export function classifyMr(
+  row: T.MrSnapshot,
   allowDraft = false
-): T.PrDecision {
+): T.MrDecision {
   for (const blocker of [
     conflictBlocker(row),
     threadBlocker(row),
@@ -222,16 +304,17 @@ export function classifyPr(
     gateBlocker(row, allowDraft),
   ])
     if (blocker !== null) return { kind: "blocker", blocker };
-  if (row.kind === "open" && row.ci.kind === "ci-pending")
-    return { kind: "waiting", frontier: row.context, pending: row.ci.pending };
+  const wait = localWait(row);
+  if (wait !== null)
+    return { kind: "waiting", frontier: row.context, reason: wait };
   const ready = readyContribution(row, allowDraft);
   if (ready === null) throw new Error("snapshot has no classified decision");
-  return ready.kind === "merged-pr"
-    ? { kind: "merged", pr: ready }
-    : { kind: "ready", pr: ready };
+  return ready.kind === "merged-mr"
+    ? { kind: "merged", mr: ready }
+    : { kind: "ready", mr: ready };
 }
 export function selectTierMajorStackDecision(
-  rows: T.NonEmpty<T.PrSnapshot>,
+  rows: T.NonEmpty<T.MrSnapshot>,
   allowDraft = false
 ): T.StackDecision {
   for (const tier of [conflictBlocker, threadBlocker, ciBlocker])
@@ -243,21 +326,19 @@ export function selectTierMajorStackDecision(
     const blocker = gateBlocker(row, allowDraft);
     if (blocker !== null) return { kind: "blocker", blocker };
   }
-  for (const row of rows)
-    if (row.kind === "open" && row.ci.kind === "ci-pending")
-      return {
-        kind: "waiting",
-        frontier: row.context,
-        pending: row.ci.pending,
-      };
-  const prs = nonEmpty(
+  for (const row of rows) {
+    const wait = localWait(row);
+    if (wait !== null)
+      return { kind: "waiting", frontier: row.context, reason: wait };
+  }
+  const mrs = nonEmpty(
     rows
       .map((row) => readyContribution(row, allowDraft))
-      .filter((row): row is T.ReadyPr | T.MergedPr => row !== null)
+      .filter((row): row is T.ReadyMr | T.MergedMr => row !== null)
   );
-  if (prs === null || prs.length !== rows.length)
+  if (mrs === null || mrs.length !== rows.length)
     throw new Error("stack has no classified decision");
-  return { kind: "clear", prs };
+  return { kind: "clear", mrs };
 }
 export const queryBackoffSeconds = (
   interval: number,
@@ -341,7 +422,7 @@ export interface WatchClock {
   sleep(seconds: number): Promise<void>;
 }
 export interface RunDependencies {
-  readonly reader: T.GitHubReader;
+  readonly reader: T.ForgeReader;
   readonly clock: WatchClock;
   readonly emit: (verdict: T.ProgressVerdict) => void;
 }
@@ -358,6 +439,26 @@ type StepResult<V> =
       readonly onDeadline?: () => V;
     }
   | { readonly kind: "continue" };
+function timeoutReason(reason: T.WaitReason): T.TimeoutVerdict["reason"] {
+  switch (reason.kind) {
+    case "pending-checks":
+      return { kind: "pending-checks", pending: reason.pending };
+    case "approval-wait":
+      return { kind: "approval-wait", status: reason.status };
+    case "unknown-merge-status":
+      return { kind: "unknown-merge-status", raw: reason.raw };
+    case "merge-train":
+      return {
+        kind: "queued-stack",
+        frontier: { host: null, path: "", iid: reason.unmergedCount as T.MrIid },
+        unmergedCount: reason.unmergedCount,
+      };
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
 async function pollUntilTerminal<V>(args: {
   readonly dependencies: RunDependencies;
   readonly options: T.PollingOptions;
@@ -412,14 +513,14 @@ async function pollUntilTerminal<V>(args: {
 }
 export async function runSimple(args: {
   readonly dependencies: RunDependencies;
-  readonly contexts: T.NonEmpty<T.PrContext>;
+  readonly contexts: T.NonEmpty<T.MrContext>;
   readonly mode: T.WatchMode;
   readonly statusOnly: boolean;
   readonly options: T.PollingOptions;
 }): Promise<T.TerminalVerdict> {
   const stamp = verdictFactory(args.dependencies.clock, args.mode);
   const step = async (): Promise<StepResult<T.TerminalVerdict>> => {
-    const rows: T.PrSnapshot[] = [];
+    const rows: T.MrSnapshot[] = [];
     for (const context of args.contexts)
       rows.push(
         await readSnapshot({
@@ -453,7 +554,7 @@ export async function runSimple(args: {
       );
     const decision =
       args.mode === "single"
-        ? classifyPr(complete[0], args.options.allowDraft)
+        ? classifyMr(complete[0], args.options.allowDraft)
         : selectTierMajorStackDecision(complete, args.options.allowDraft);
     if (decision.kind === "blocker")
       return {
@@ -468,7 +569,7 @@ export async function runSimple(args: {
             kind: "READY",
             terminal: true,
             exitCode: 0,
-            scope: { kind: "single", pr: decision.pr },
+            scope: { kind: "single", mr: decision.mr },
           },
           args.mode
         ),
@@ -481,7 +582,7 @@ export async function runSimple(args: {
             kind: "READY",
             terminal: true,
             exitCode: 0,
-            scope: { kind: "stack", prs: decision.prs },
+            scope: { kind: "stack", mrs: decision.mrs },
           },
           args.mode
         ),
@@ -491,7 +592,7 @@ export async function runSimple(args: {
         kind: "WAITING",
         terminal: false,
         frontier: decision.frontier,
-        reason: { kind: "pending-checks", pending: decision.pending },
+        reason: decision.reason,
       })
     );
     return {
@@ -502,7 +603,14 @@ export async function runSimple(args: {
           kind: "TIMEOUT",
           terminal: true,
           exitCode: 5,
-          reason: { kind: "pending-checks", pending: decision.pending },
+          reason:
+            decision.reason.kind === "merge-train"
+              ? {
+                  kind: "queued-stack",
+                  frontier: decision.frontier,
+                  unmergedCount: decision.reason.unmergedCount,
+                }
+              : timeoutReason(decision.reason),
         }),
     };
   };
@@ -516,20 +624,20 @@ export async function runSimple(args: {
 export type QueueWork =
   | {
       readonly kind: "whole-stack-sweep";
-      readonly remaining: T.NonEmpty<T.PrContext>;
+      readonly remaining: T.NonEmpty<T.MrContext>;
     }
-  | { readonly kind: "frontier-poll"; readonly frontier: T.PrContext };
+  | { readonly kind: "frontier-poll"; readonly frontier: T.MrContext };
 export interface QueueState {
-  readonly queue: T.NonEmpty<T.PrContext>;
-  readonly snapshots: ReadonlyMap<T.PrNumber, T.PrSnapshot>;
+  readonly queue: T.NonEmpty<T.MrContext>;
+  readonly snapshots: ReadonlyMap<T.MrIid, T.MrSnapshot>;
   readonly work: QueueWork | null;
   readonly nextSweepAt: number;
-  readonly frontier: T.PrContext | null;
+  readonly frontier: T.MrContext | null;
   readonly lastWaitKey: string | null;
   readonly startedAt: number;
 }
 export const createQueueState = (
-  queue: T.NonEmpty<T.PrContext>,
+  queue: T.NonEmpty<T.MrContext>,
   now: number
 ): QueueState => ({
   queue,
@@ -540,19 +648,19 @@ export const createQueueState = (
   lastWaitKey: null,
   startedAt: now,
 });
-const orderedRows = (state: QueueState): T.PrSnapshot[] =>
+const orderedRows = (state: QueueState): T.MrSnapshot[] =>
   state.queue.flatMap((context) => {
-    const row = state.snapshots.get(context.number);
+    const row = state.snapshots.get(context.iid);
     return row === undefined ? [] : [row];
   });
-const activeRows = (state: QueueState): T.PrSnapshot[] =>
+const activeRows = (state: QueueState): T.MrSnapshot[] =>
   orderedRows(state).filter((row) => row.kind !== "merged");
 export function planQueue(state: QueueState, now: number): QueueState {
   if (state.work !== null) return state;
   if (state.snapshots.size === 0 || now >= state.nextSweepAt) {
     const remaining = nonEmpty(
       state.queue.filter(
-        (context) => state.snapshots.get(context.number)?.kind !== "merged"
+        (context) => state.snapshots.get(context.iid)?.kind !== "merged"
       )
     );
     if (remaining !== null)
@@ -565,22 +673,22 @@ export function planQueue(state: QueueState, now: number): QueueState {
 }
 export interface QueueSnapshotResult {
   readonly state: QueueState;
-  readonly completedSweepRows: T.NonEmpty<T.PrSnapshot> | null;
+  readonly completedSweepRows: T.NonEmpty<T.MrSnapshot> | null;
 }
 export function applyQueueSnapshot(
   state: QueueState,
-  snapshot: T.PrSnapshot,
+  snapshot: T.MrSnapshot,
   now: number,
   options: T.PollingOptions
 ): QueueSnapshotResult {
   if (state.work === null) throw new Error("queue has no read in flight");
   const snapshots = new Map(state.snapshots);
-  snapshots.set(snapshot.context.number, snapshot);
+  snapshots.set(snapshot.context.iid, snapshot);
   const base = { ...state, snapshots };
   if (state.work.kind === "frontier-poll")
     return { state: { ...base, work: null }, completedSweepRows: null };
   const [head, ...tail] = state.work.remaining;
-  if (head.number !== snapshot.context.number)
+  if (head.iid !== snapshot.context.iid)
     throw new Error("snapshot does not match sweep head");
   const remaining = nonEmpty(tail);
   if (remaining !== null)
@@ -590,7 +698,7 @@ export function applyQueueSnapshot(
     };
   const rows = nonEmpty(
     state.queue.flatMap((context) => {
-      const row = snapshots.get(context.number);
+      const row = snapshots.get(context.iid);
       return row === undefined ? [] : [row];
     })
   );
@@ -605,7 +713,7 @@ export type QueueEvaluation =
   | {
       readonly kind: "complete";
       readonly state: QueueState;
-      readonly merged: T.NonEmpty<T.MergedPr>;
+      readonly merged: T.NonEmpty<T.MergedMr>;
     }
   | {
       readonly kind: "blocker";
@@ -615,32 +723,44 @@ export type QueueEvaluation =
   | {
       readonly kind: "advance";
       readonly state: QueueState;
-      readonly merged: T.PrContext;
-      readonly frontier: T.PrContext;
+      readonly merged: T.MrContext;
+      readonly frontier: T.MrContext;
       readonly remaining: number;
     }
   | {
       readonly kind: "timeout";
       readonly state: QueueState;
-      readonly frontier: T.PrContext;
+      readonly frontier: T.MrContext;
       readonly unmergedCount: number;
     }
   | {
       readonly kind: "waiting";
       readonly state: QueueState;
-      readonly frontier: T.PrContext;
-      readonly reason:
-        | {
-            readonly kind: "pending-checks";
-            readonly pending: T.NonEmpty<T.PendingCheck>;
-          }
-        | { readonly kind: "merge-queue"; readonly unmergedCount: number };
+      readonly frontier: T.MrContext;
+      readonly reason: T.WaitReason;
       readonly emit: boolean;
     };
+function waitKey(frontier: T.MrContext, reason: T.WaitReason): string {
+  switch (reason.kind) {
+    case "pending-checks":
+      return `pending:${frontier.iid}:${reason.pending.length}`;
+    case "merge-train":
+      return `train:${frontier.iid}:${reason.unmergedCount}:${reason.trains}`;
+    case "approval-wait":
+      return `approval:${frontier.iid}:${reason.status}:${reason.approvalsLeft}`;
+    case "unknown-merge-status":
+      return `unknown:${frontier.iid}:${reason.raw}`;
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
 export function evaluateQueue(
   state: QueueState,
   now: number,
-  options: T.PollingOptions
+  options: T.PollingOptions,
+  train: T.MergeTrainRead
 ): QueueEvaluation {
   const active = activeRows(state);
   if (active.length === 0) {
@@ -649,7 +769,7 @@ export function evaluateQueue(
         row.kind === "merged"
           ? [
               {
-                kind: "merged-pr" as const,
+                kind: "merged-mr" as const,
                 context: row.context,
                 mergedAt: row.facts.mergedAt,
               },
@@ -666,7 +786,7 @@ export function evaluateQueue(
   if (decision.kind === "blocker")
     return { kind: "blocker", state, blocker: decision.blocker };
   const frontier = rows[0].context;
-  if (state.frontier !== null && state.frontier.number !== frontier.number)
+  if (state.frontier !== null && state.frontier.iid !== frontier.iid)
     return {
       kind: "advance",
       state: { ...state, frontier, lastWaitKey: null },
@@ -681,17 +801,18 @@ export function evaluateQueue(
       frontier,
       unmergedCount: active.length,
     };
-  const row = rows[0];
-  const pending =
-    row.kind === "open" && row.ci.kind === "ci-pending" ? row.ci.pending : null;
+  const frontierWait = localWait(rows[0]);
+  const inTrain =
+    train.kind === "active" && train.iids.some((iid) => iid === frontier.iid);
   const reason =
-    pending === null
-      ? ({ kind: "merge-queue", unmergedCount: active.length } as const)
-      : ({ kind: "pending-checks", pending } as const);
-  const key =
-    reason.kind === "pending-checks"
-      ? `pending:${frontier.number}:${reason.pending.length}`
-      : `queue:${frontier.number}:${reason.unmergedCount}`;
+    frontierWait ??
+    ({
+      kind: "merge-train",
+      unmergedCount: active.length,
+      trains: train.kind,
+      inTrain,
+    } as const);
+  const key = waitKey(frontier, reason);
   return {
     kind: "waiting",
     state: { ...state, frontier, lastWaitKey: key },
@@ -702,7 +823,7 @@ export function evaluateQueue(
 }
 export async function runQueued(args: {
   readonly dependencies: RunDependencies;
-  readonly contexts: T.NonEmpty<T.PrContext>;
+  readonly contexts: T.NonEmpty<T.MrContext>;
   readonly options: T.PollingOptions;
 }): Promise<T.QueueTerminalVerdict> {
   let state = createQueueState(args.contexts, args.dependencies.clock.now());
@@ -713,10 +834,12 @@ export async function runQueued(args: {
   const step = async (): Promise<StepResult<T.QueueTerminalVerdict>> => {
     state = planQueue(state, args.dependencies.clock.now());
     if (state.work === null) {
+      const train = await args.dependencies.reader.mergeTrain(args.contexts[0]);
       const complete = evaluateQueue(
         state,
         args.dependencies.clock.now(),
-        args.options
+        args.options,
+        train
       );
       if (complete.kind !== "complete")
         throw new Error("queue has no work while active");
@@ -758,10 +881,12 @@ export async function runQueued(args: {
         })
       );
     if (state.work !== null) return { kind: "continue" };
+    const train = await args.dependencies.reader.mergeTrain(args.contexts[0]);
     const evaluation = evaluateQueue(
       state,
       args.dependencies.clock.now(),
-      args.options
+      args.options,
+      train
     );
     state = evaluation.state;
     switch (evaluation.kind) {

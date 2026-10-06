@@ -6,11 +6,12 @@ import {
   Option,
 } from "commander";
 import {
-  GhGitHubReader,
+  GlabForgeReader,
   WatcherQueryError,
   discoverStack,
   resolveContext,
-} from "./github.ts";
+  reviewBots,
+} from "./gitlab.ts";
 import {
   runQueued,
   runSimple,
@@ -20,15 +21,16 @@ import {
 } from "./policy.ts";
 import { renderJson, renderPretty } from "./render.ts";
 import type * as T from "./types.ts";
-import { nonEmpty, parsePrNumber } from "./types.ts";
+import { nonEmpty, parseMrIid } from "./types.ts";
 export interface CliOptions {
-  readonly owner: string | null;
-  readonly repo: string | null;
-  readonly pr: T.PrNumber | null;
+  readonly host: string | null;
+  readonly project: string | null;
+  readonly mr: T.MrIid | null;
   readonly mode: T.WatchMode;
-  readonly stackPrs: readonly T.PrNumber[];
+  readonly stackMrs: readonly T.MrIid[];
   readonly statusOnly: boolean;
   readonly pretty: boolean;
+  readonly bots: readonly string[];
   readonly polling: T.PollingOptions;
 }
 function positiveNumber(value: string): number {
@@ -49,28 +51,31 @@ function positiveInteger(value: string): number {
     throw new InvalidArgumentError("must be a positive integer");
   return parsed;
 }
-function prNumber(value: string): T.PrNumber {
+function mrIid(value: string): T.MrIid {
   try {
-    return parsePrNumber(Number(value.replace(/^#/, "")));
+    return parseMrIid(Number(value.trim().replace(/^[#!]/, "")));
   } catch {
     throw new InvalidArgumentError("must be a positive integer");
   }
 }
-function stackPrList(value: string): T.NonEmpty<T.PrNumber> {
-  const numbers = value.split(",").map((part) => prNumber(part.trim()));
+function stackMrList(value: string): T.NonEmpty<T.MrIid> {
+  const numbers = value.split(",").map((part) => mrIid(part.trim()));
   if (new Set(numbers).size !== numbers.length)
-    throw new InvalidArgumentError("contains a duplicate PR");
+    throw new InvalidArgumentError("contains a duplicate MR");
   const parsed = nonEmpty(numbers);
   if (parsed === null) throw new InvalidArgumentError("cannot be empty");
   return parsed;
 }
+function collectBot(value: string, previous: string[]): string[] {
+  return previous.concat([value]);
+}
 interface RawOptions {
-  readonly owner?: string;
-  readonly repo?: string;
-  readonly pr?: T.PrNumber;
+  readonly host?: string;
+  readonly project?: string;
+  readonly mr?: T.MrIid;
   readonly stack: boolean;
   readonly queuedStack: boolean;
-  readonly stackPrs?: T.NonEmpty<T.PrNumber>;
+  readonly stackMrs?: T.NonEmpty<T.MrIid>;
   readonly interval: number;
   readonly sweepInterval: number;
   readonly timeout: number;
@@ -78,20 +83,32 @@ interface RawOptions {
   readonly statusOnly: boolean;
   readonly allowDraft: boolean;
   readonly pretty: boolean;
+  readonly bot: string[];
 }
 export function parseArgs(
   argv: readonly string[],
-  io: Pick<CliRuntime, "stdout" | "stderr">
+  io: Pick<CliRuntime, "stdout" | "stderr">,
+  env: Readonly<Record<string, string | undefined>> = process.env
 ): CliOptions {
-  const program = new Command("watch-pr")
+  const program = new Command("watch-mr")
     .description(
-      "Watch one pull request, a connected stack, or an immutable queued stack.\nJSON (NDJSON while polling) is the default; --pretty renders human text."
+      "Watch one merge request, a connected stack, or a queued stack.\nJSON (NDJSON while polling) is the default. --pretty renders human text."
     )
     .configureOutput({ writeOut: io.stdout, writeErr: io.stderr })
     .exitOverride()
-    .option("--owner <owner>", "GitHub repository owner")
-    .option("--repo <repo>", "GitHub repository name")
-    .option("--pr <number>", "pull request number", prNumber)
+    .option(
+      "--host <hostname>",
+      "GitLab host; default is GITLAB_HOST, then the origin remote"
+    )
+    .option(
+      "--project <group/project>",
+      "GitLab project path; default is the origin remote"
+    )
+    .option(
+      "--mr <iid>",
+      "merge request iid; default is the MR for the current branch",
+      mrIid
+    )
     .addOption(
       new Option("--stack", "watch the connected open stack")
         .default(false)
@@ -99,13 +116,13 @@ export function parseArgs(
     )
     .option(
       "--queued-stack",
-      "watch the captured stack until all PRs merge",
+      "watch the captured stack until every MR merges",
       false
     )
     .option(
-      "--stack-prs <n,...>",
+      "--stack-mrs <iid,iid,...>",
       "frozen bottom-to-top queue (queued mode only)",
-      stackPrList
+      stackMrList
     )
     .option("--interval <seconds>", "poll interval", positiveNumber, 60)
     .option(
@@ -128,19 +145,26 @@ export function parseArgs(
     )
     .option("--status-only", "print one status table and exit 0", false)
     .option("--allow-draft", "do not treat a draft as a merge gate", false)
-    .option("--pretty", "render human text instead of JSON", false);
+    .option("--pretty", "render human text instead of JSON", false)
+    .option(
+      "--bot <username>",
+      "review bot username; repeatable. Also read from JSTACK_REVIEW_BOTS",
+      collectBot,
+      [] as string[]
+    );
   program.parse(argv, { from: "user" });
   const raw = program.opts<RawOptions>();
-  if (raw.stackPrs !== undefined && !raw.queuedStack)
-    program.error("error: --stack-prs requires --queued-stack");
+  if (raw.stackMrs !== undefined && !raw.queuedStack)
+    program.error("error: --stack-mrs requires --queued-stack");
   return {
-    owner: raw.owner ?? null,
-    repo: raw.repo ?? null,
-    pr: raw.pr ?? null,
+    host: raw.host ?? env.GITLAB_HOST ?? null,
+    project: raw.project ?? null,
+    mr: raw.mr ?? null,
     mode: raw.queuedStack ? "queued-stack" : raw.stack ? "stack" : "single",
-    stackPrs: raw.stackPrs ?? [],
+    stackMrs: raw.stackMrs ?? [],
     statusOnly: raw.statusOnly,
     pretty: raw.pretty,
+    bots: reviewBots(raw.bot, env.JSTACK_REVIEW_BOTS),
     polling: {
       interval: raw.interval,
       sweepInterval: raw.sweepInterval,
@@ -151,14 +175,14 @@ export function parseArgs(
   };
 }
 export interface CliRuntime {
-  readonly reader: T.GitHubReader;
+  readonly reader: T.ForgeReader;
   readonly clock: WatchClock;
   readonly stdout: (value: string) => void;
   readonly stderr: (value: string) => void;
 }
-function realRuntime(): CliRuntime {
+function realRuntime(bots: readonly string[]): CliRuntime {
   return {
-    reader: new GhGitHubReader(),
+    reader: new GlabForgeReader({ bots }),
     clock: {
       now: () => performance.now() / 1_000,
       observedAt: () => new Date().toISOString(),
@@ -172,42 +196,48 @@ function realRuntime(): CliRuntime {
 }
 export async function main(
   argv: readonly string[],
-  runtime: CliRuntime = realRuntime()
+  runtime?: CliRuntime,
+  env: Readonly<Record<string, string | undefined>> = process.env
 ): Promise<number> {
   let options: CliOptions;
+  const io = runtime ?? {
+    stdout: (value: string) => process.stdout.write(value),
+    stderr: (value: string) => process.stderr.write(value),
+  };
   try {
-    options = parseArgs(argv, runtime);
+    options = parseArgs(argv, io, env);
   } catch (error) {
     if (!(error instanceof CommanderError)) throw error;
     return error.exitCode === 0 ? 0 : 64;
   }
+  const active = runtime ?? realRuntime(options.bots);
   const render = options.pretty ? renderPretty : renderJson;
   const emit = (verdict: T.ProgressVerdict): void =>
-    runtime.stdout(render(verdict));
-  let contexts: T.NonEmpty<T.PrContext>;
+    active.stdout(render(verdict));
+  let contexts: T.NonEmpty<T.MrContext>;
   try {
     const seed = await resolveContext({
-      reader: runtime.reader,
-      owner: options.owner,
-      repo: options.repo,
-      pr: options.pr ?? options.stackPrs[0] ?? null,
+      reader: active.reader,
+      host: options.host,
+      project: options.project,
+      mr: options.mr ?? options.stackMrs[0] ?? null,
     });
     contexts =
-      nonEmpty(options.stackPrs.map((number) => ({ ...seed, number }))) ??
+      nonEmpty(options.stackMrs.map((iid) => ({ ...seed, iid }))) ??
       (options.mode === "single"
         ? [seed]
-        : await discoverStack(runtime.reader, seed));
+        : await discoverStack(active.reader, seed));
   } catch (error) {
     if (!(error instanceof WatcherQueryError)) throw error;
     const verdict = statusQueryVerdict(
-      verdictFactory(runtime.clock, options.mode),
+      verdictFactory(active.clock, options.mode),
       1,
       error.failure
     );
-    runtime.stdout(render(verdict));
+    active.stdout(render(verdict));
     return verdict.exitCode;
   }
-  const dependencies = { reader: runtime.reader, clock: runtime.clock, emit };
+  const dependencies = { reader: active.reader, clock: active.clock, emit };
   const verdict =
     options.mode === "queued-stack" && !options.statusOnly
       ? await runQueued({ dependencies, contexts, options: options.polling })
@@ -218,6 +248,6 @@ export async function main(
           statusOnly: options.statusOnly,
           options: options.polling,
         });
-  runtime.stdout(render(verdict));
+  active.stdout(render(verdict));
   return verdict.exitCode;
 }

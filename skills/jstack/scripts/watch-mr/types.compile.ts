@@ -1,56 +1,54 @@
-import { parsePrNumber } from "./types.ts";
+import { parseMrIid } from "./types.ts";
 import type {
   CiClean,
-  GitHubMergeAllowed,
-  PrContext,
-  ReadyPr,
+  ForgeMergeAllowed,
+  MrContext,
+  ReadyMr,
   TerminalVerdict,
 } from "./types.ts";
 
 type ReadyVerdict = Extract<TerminalVerdict, { readonly kind: "READY" }>;
 
 const context = {
-  owner: "octocat",
-  repo: "hello-world",
-  number: parsePrNumber(123),
-} satisfies PrContext;
+  host: "git.example.test",
+  path: "group/project",
+  iid: parseMrIid(123),
+} satisfies MrContext;
 const cleanCi = {
   kind: "ci-clean",
-  source: "gh-pr-checks",
+  source: "pipeline-jobs",
   all: [
     {
       kind: "passed",
       name: "ci",
-      reportedState: "SUCCESS",
+      reportedState: "success",
       description: "",
       link: "",
-      workflow: "",
+      stage: "test",
     },
   ],
   failed: [],
   pending: [],
   hadPreviousPassingCi: false,
-  github: {
+  forge: {
     kind: "allowed",
-    basis: "merge-state",
-    mergeStateStatus: "CLEAN",
-    headRollupState: "SUCCESS",
+    detailedMergeStatus: "mergeable",
   },
 } satisfies CiClean;
-const readyPr = {
-  kind: "ready-pr",
+const readyMr = {
+  kind: "ready-mr",
   context,
   proof: {
     mergeability: "clear",
     threads: [],
     ci: cleanCi,
     gate: {
-      state: "OPEN",
-      reviewDecision: "APPROVED",
+      state: "opened",
+      approval: "approved",
       draft: "not-draft",
     },
   },
-} satisfies ReadyPr;
+} satisfies ReadyMr;
 const ready = {
   schemaVersion: 1,
   sequence: 1,
@@ -59,33 +57,30 @@ const ready = {
   kind: "READY",
   terminal: true,
   exitCode: 0,
-  scope: { kind: "single", pr: readyPr },
+  scope: { kind: "single", mr: readyMr },
 } satisfies ReadyVerdict;
 
 void ready;
 
-// PR 179929's shape. Each assertion below stays a single short statement so a
-// reformat cannot drift the directive away from the line that actually errors.
 const refused = {
-  kind: "allowed",
-  basis: "rollup",
-  mergeStateStatus: "BLOCKED",
-  headRollupState: "FAILURE",
+  kind: "refused",
+  detailedMergeStatus: "ci_must_pass",
+  pipelineStatus: "failed",
 } as const;
 
-// @ts-expect-error BLOCKED with a failing rollup is a refusal, not an allowance.
-const refusalIsNotAllowed: GitHubMergeAllowed = refused;
+// @ts-expect-error a failed pipeline refusal is not an allowance.
+const refusalIsNotAllowed: ForgeMergeAllowed = refused;
 
-// @ts-expect-error CI cannot be clean while GitHub refuses the merge.
-const refusalIsNotClean: CiClean = { ...cleanCi, github: refused };
+// @ts-expect-error CI cannot be clean while the forge refuses the merge.
+const refusalIsNotClean: CiClean = { ...cleanCi, forge: refused };
 
 // @ts-expect-error READY cannot carry the failing-checks exit code.
 const readyWithBlockerExit: ReadyVerdict = { ...ready, exitCode: 4 };
 
-const unprovenPr = { kind: "ready-pr", context } as const;
+const unprovenMr = { kind: "ready-mr", context } as const;
 
 // @ts-expect-error An open READY row must carry positive readiness proof.
-const readyWithoutProof: ReadyPr = unprovenPr;
+const readyWithoutProof: ReadyMr = unprovenMr;
 
 void refusalIsNotAllowed;
 void refusalIsNotClean;

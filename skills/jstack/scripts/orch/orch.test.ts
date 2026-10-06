@@ -45,12 +45,14 @@ function useStore(
   return store;
 }
 
-async function initializedStore(): Promise<{
+async function initializedStore(
+  options?: OpenStoreOptions
+): Promise<{
   readonly directory: string;
   readonly store: Store;
 }> {
   const directory = await makeDirectory();
-  const store = useStore(directory);
+  const store = useStore(directory, options);
   await store.init();
   return { directory, store };
 }
@@ -71,22 +73,34 @@ function git({
   return result.stdout.toString().trim();
 }
 
-async function makeGitStack(directory: string): Promise<{
+async function makeGitStack(
+  directory: string,
+  options: {
+    /** Leave these branches as origin remote refs only, with no local branch. */
+    readonly remoteOnly?: readonly string[];
+    /** End on this branch instead of the last one created. */
+    readonly checkout?: string;
+  } = {}
+): Promise<{
   readonly repo: string;
-  readonly mergedSha: string;
-  readonly closedSha: string;
-  readonly openSha: string;
+  readonly bottomSha: string;
+  readonly middleSha: string;
+  readonly topSha: string;
 }> {
   const repo = join(directory, "repo");
   await mkdir(repo);
   git({ repo, args: ["init", "--initial-branch=main"] });
   git({ repo, args: ["config", "user.name", "Orch Test"] });
   git({ repo, args: ["config", "user.email", "orch@example.com"] });
+  git({
+    repo,
+    args: ["remote", "add", "origin", "git@git.example.test:group/stack.git"],
+  });
   await writeFile(join(repo, "main.txt"), "main\n");
   git({ repo, args: ["add", "."] });
   git({ repo, args: ["commit", "-m", "main"] });
 
-  const branches = ["stack/merged", "stack/closed", "stack/open"];
+  const branches = ["stack/bottom", "stack/middle", "stack/top"];
   for (const [index, branch] of branches.entries()) {
     git({ repo, args: ["checkout", "-b", branch] });
     await writeFile(join(repo, `stack-${index}.txt`), `${branch}\n`);
@@ -94,62 +108,81 @@ async function makeGitStack(directory: string): Promise<{
     git({ repo, args: ["commit", "-m", branch] });
   }
 
-  return {
-    repo,
-    mergedSha: git({ repo, args: ["rev-parse", "stack/merged"] }),
-    closedSha: git({ repo, args: ["rev-parse", "stack/closed"] }),
-    openSha: git({ repo, args: ["rev-parse", "stack/open"] }),
-  };
+  const shas = {
+  bottomSha: git({ repo, args: ["rev-parse", "stack/bottom"] }),
+  middleSha: git({ repo, args: ["rev-parse", "stack/middle"] }),
+  topSha: git({ repo, args: ["rev-parse", "stack/top"] }),
+};
+  git({ repo, args: ["checkout", options.checkout ?? "stack/top"] });
+
+  // A stack branch discovered from GitLab can exist only on the remote, pushed
+  // from another clone or by a teammate. `git rev-parse <bare name>` resolves
+  // neither refs/heads/<b> nor refs/remotes/origin/<b>, so the local ref is
+  // replaced by the remote one.
+  for (const branch of options.remoteOnly ?? []) {
+    git({ repo, args: ["update-ref", `refs/remotes/origin/${branch}`, `refs/heads/${branch}`] });
+    git({ repo, args: ["checkout", "main"] });
+    git({ repo, args: ["branch", "-D", branch] });
+  }
+  if ((options.remoteOnly ?? []).length > 0)
+    git({ repo, args: ["checkout", options.checkout ?? "main"] });
+
+  return { repo, ...shas };
 }
 
-async function withFakeGt<T>({
+const OPEN_MRS = [
+  { iid: 10, source_branch: "stack/bottom", target_branch: "main" },
+  { iid: 13, source_branch: "stack/middle", target_branch: "stack/bottom" },
+  { iid: 11, source_branch: "stack/top", target_branch: "stack/middle" },
+];
+
+async function withFakeGlab<T>({
   directory,
   operation,
-  output,
+  listOutput,
 }: {
   directory: string;
-  operation: (outputPath: string) => Promise<T>;
-  output: string;
+  operation: () => Promise<T>;
+  listOutput?: string;
 }): Promise<T> {
   const bin = join(directory, "bin");
-  const outputPath = join(directory, "gt-output.txt");
+  const repo = realpathSync(join(directory, "repo"));
   await mkdir(bin);
-  await writeFile(outputPath, output);
-  const gt = join(bin, "gt");
+  const glab = join(bin, "glab");
   await writeFile(
-    gt,
+    glab,
     `#!/usr/bin/env bash
 set -euo pipefail
-if [ "$(pwd -P)" != "${realpathSync(join(directory, "repo"))}" ]; then
-  printf 'gt ran outside the fixture repo: %s\\n' "$(pwd -P)" >&2
+if [ "$(pwd -P)" != "${repo}" ]; then
+  printf 'glab ran outside the fixture repo: %s\\n' "$(pwd -P)" >&2
   exit 2
 fi
 case "$*" in
-  "--no-interactive log short --stack --reverse")
-    cat "${outputPath}"
+  *"/merge_requests?state=opened&per_page=100"*)
+    cat <<'JSON'
+${listOutput ?? JSON.stringify(OPEN_MRS)}
+JSON
     ;;
-  "--no-interactive info stack/merged")
-    printf 'stack/merged\\nPR #10 (Merged) merged change\\n'
+  *"projects/group%2Fstack"*)
+    printf '{"default_branch":"main"}\\n'
     ;;
-  "--no-interactive info stack/closed")
-    printf 'stack/closed\\nPR #13 (Closed) closed change\\n'
-    ;;
-  "--no-interactive info stack/open")
-    printf 'stack/open\\nPR #11 (Needs approvals) open change\\n'
+  *"/merge_requests/"*)
+    printf 'unexpected glab arguments: %s\\n' "$*" >&2
+    exit 2
     ;;
   *)
-    printf 'unexpected gt arguments: %s\\n' "$*" >&2
+    printf 'unexpected glab arguments: %s\\n' "$*" >&2
     exit 2
     ;;
 esac
 `
   );
-  await chmod(gt, 0o755);
+  await chmod(glab, 0o755);
 
   const originalPath = process.env.PATH;
   process.env.PATH = `${bin}:${originalPath ?? ""}`;
   try {
-    return await operation(outputPath);
+    return await operation();
   } finally {
     if (originalPath === undefined) {
       delete process.env.PATH;
@@ -406,47 +439,42 @@ describe("Store", () => {
     ]);
   });
 
-  it("resolves the ordered Graphite frontier and validates an optional pin", async () => {
+  it("resolves the ordered GitLab frontier and validates an optional pin", async () => {
     const { directory, store } = await initializedStore();
     const stack = await makeGitStack(directory);
-    const output = `◯ main
-◯ stack/merged
-◯ stack/closed
-◉ stack/open (current)
-`;
 
-    await withFakeGt({
+    await withFakeGlab({
       directory,
-      output,
       operation: async () => {
         expect(await store.frontier.set({ repo: stack.repo })).toEqual({
           generation: 1,
           prs: [
             {
               pr: 10,
-              branches: "stack/merged",
-              sha: stack.mergedSha,
-              state: "MERGED",
+              branches: "stack/bottom",
+              sha: stack.bottomSha,
+              state: "OPEN",
             },
             {
               pr: 13,
-              branches: "stack/closed",
-              sha: stack.closedSha,
-              state: "CLOSED",
+              branches: "stack/middle",
+              sha: stack.middleSha,
+              state: "OPEN",
             },
             {
               pr: 11,
-              branches: "stack/open",
-              sha: stack.openSha,
+              branches: "stack/top",
+              sha: stack.topSha,
               state: "OPEN",
             },
           ],
-          lowestUnmerged: 11,
+          lowestUnmerged: 10,
         });
         expect(
           (
             await store.frontier.set({
               repo: stack.repo,
+              project: "group/stack",
               prs: [10, 13, 11],
             })
           ).generation
@@ -458,7 +486,7 @@ describe("Store", () => {
             prs: [10, 11, 12],
           })
         ).rejects.toThrow(
-          "frontier pin mismatch: missing from gt: 12; extra in gt: 13"
+          "frontier pin mismatch: missing from glab: 12; extra in glab: 13"
         );
         await expect(
           store.frontier.set({
@@ -466,7 +494,7 @@ describe("Store", () => {
             prs: [13, 10, 11],
           })
         ).rejects.toThrow(
-          "frontier pin mismatch: order differs: expected 13,10,11; gt 10,13,11"
+          "frontier pin mismatch: order differs: expected 13,10,11; glab 10,13,11"
         );
         await expect(
           store.frontier.set({
@@ -478,18 +506,116 @@ describe("Store", () => {
     });
   });
 
-  it("rejects unparseable Graphite output loudly", async () => {
+  // Shipping runs frontier set from the default branch, where the stack root
+  // lives, and again after the bottom MR merged and its branch was deleted.
+  // No open MR has source_branch: "main", so requiring one as the seed made
+  // the command unusable at the moment it matters most.
+  it("discovers the stack from the default branch with no open MR for the current branch", async () => {
+    const { directory, store } = await initializedStore();
+    const stack = await makeGitStack(directory, { checkout: "main" });
+
+    await withFakeGlab({
+      directory,
+      operation: async () => {
+        expect((await store.frontier.set({ repo: stack.repo })).prs).toEqual([
+          { pr: 10, branches: "stack/bottom", sha: stack.bottomSha, state: "OPEN" },
+          { pr: 13, branches: "stack/middle", sha: stack.middleSha, state: "OPEN" },
+          { pr: 11, branches: "stack/top", sha: stack.topSha, state: "OPEN" },
+        ]);
+      },
+    });
+  });
+
+  it("resolves a stack branch that exists only on the remote", async () => {
+    const { directory, store } = await initializedStore();
+    const stack = await makeGitStack(directory, { remoteOnly: ["stack/top"] });
+
+    await withFakeGlab({
+      directory,
+      operation: async () => {
+        expect((await store.frontier.set({ repo: stack.repo })).prs).toEqual([
+          { pr: 10, branches: "stack/bottom", sha: stack.bottomSha, state: "OPEN" },
+          { pr: 13, branches: "stack/middle", sha: stack.middleSha, state: "OPEN" },
+          { pr: 11, branches: "stack/top", sha: stack.topSha, state: "OPEN" },
+        ]);
+      },
+    });
+  });
+
+  it("reports a branch that resolves to nothing, naming both refs it tried", async () => {
+    const { directory, store } = await initializedStore();
+    const stack = await makeGitStack(directory, {
+      checkout: "main",
+      remoteOnly: ["stack/bottom"],
+    });
+    git({ repo: stack.repo, args: ["update-ref", "-d", "refs/remotes/origin/stack/bottom"] });
+
+    await withFakeGlab({
+      directory,
+      operation: async () => {
+        await expect(store.frontier.set({ repo: stack.repo })).rejects.toThrow(
+          /tried refs\/heads\/stack\/bottom, refs\/remotes\/origin\/stack\/bottom/
+        );
+      },
+    });
+  });
+
+  it("does not linearise siblings and never roots a stack at a develop release", async () => {
+    const notes: string[] = [];
+    const { directory, store } = await initializedStore({
+      onStackExcluded: (detail) => notes.push(detail),
+    });
+    const stack = await makeGitStack(directory, { checkout: "main" });
+
+    await withFakeGlab({
+      directory,
+      listOutput: JSON.stringify([
+        ...OPEN_MRS,
+        { iid: 5, source_branch: "develop", target_branch: "main" },
+        { iid: 20, source_branch: "stack/sibling", target_branch: "stack/bottom" },
+      ]),
+      operation: async () => {
+        // !20 shares target_branch stack/bottom with !13, so it is a second
+        // stack, and !5 is a release into main, not a feature root.
+        expect((await store.frontier.set({ repo: stack.repo })).prs).toEqual([
+          { pr: 10, branches: "stack/bottom", sha: stack.bottomSha, state: "OPEN" },
+          { pr: 13, branches: "stack/middle", sha: stack.middleSha, state: "OPEN" },
+          { pr: 11, branches: "stack/top", sha: stack.topSha, state: "OPEN" },
+        ]);
+      },
+    });
+
+    expect(notes.join("\n")).toContain("!20 sibling");
+    expect(notes.join("\n")).toContain("!5 release into main");
+  });
+
+  it("fails when no open merge request targets the default branch", async () => {
+    const { directory, store } = await initializedStore();
+    const stack = await makeGitStack(directory, { checkout: "main" });
+
+    await withFakeGlab({
+      directory,
+      listOutput: JSON.stringify([
+        { iid: 11, source_branch: "stack/middle", target_branch: "stack/bottom" },
+      ]),
+      operation: async () => {
+        await expect(store.frontier.set({ repo: stack.repo })).rejects.toThrow(
+          "glab stack discovery failed: no open merge request targets main in group/stack"
+        );
+      },
+    });
+  });
+
+  it("rejects unparseable glab output loudly", async () => {
     const { directory, store } = await initializedStore();
     const stack = await makeGitStack(directory);
 
-    await withFakeGt({
+    await withFakeGlab({
       directory,
-      output: "◯ main\nthis line is not Graphite output\n",
+      listOutput: "this line is not GitLab output",
       operation: async () => {
-        await expect(
-          store.frontier.set({ repo: stack.repo })
-        ).rejects.toThrow(
-          'gt log short output has an unparseable line 2: "this line is not Graphite output"'
+        await expect(store.frontier.set({ repo: stack.repo })).rejects.toThrow(
+          "glab stack discovery failed: glab merge request list"
         );
       },
     });
@@ -548,6 +674,7 @@ describe("orch CLI", () => {
     const frontierHelp = runCli(["frontier", "set", "--help"]);
     expect(frontierHelp.code).toBe(0);
     expect(frontierHelp.stdout).toContain("--repo <dir>");
+    expect(frontierHelp.stdout).toContain("--project <group/project>");
     expect(frontierHelp.stdout).toContain("--prs <n,...>");
 
     const directory = await makeDirectory();

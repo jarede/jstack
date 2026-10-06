@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { WatcherQueryError } from "./github.ts";
+import { WatcherQueryError } from "./gitlab.ts";
 import {
   applyQueueSnapshot,
-  assessGitHubMerge,
-  classifyPr,
+  assessForgeMerge,
+  classifyMr,
   createQueueState,
   evaluateQueue,
   planQueue,
@@ -19,20 +19,19 @@ import {
   pendingCheck,
 } from "./fakes.test-helper.ts";
 import type {
-  GitHubReader,
+  ForgeReader,
+  MergeRequestFacts,
+  MrContext,
   NonEmpty,
   PollingOptions,
-  PrContext,
   ProgressVerdict,
-  PullRequestFacts,
-  RollupState,
 } from "./types.ts";
-import { parsePrNumber } from "./types.ts";
+import { parseMrIid } from "./types.ts";
 
-const context = (number: number): PrContext => ({
-  owner: "owner",
-  repo: "repo",
-  number: parsePrNumber(number),
+const context = (iid: number): MrContext => ({
+  host: "git.example.test",
+  path: "group/project",
+  iid: parseMrIid(iid),
 });
 const options = {
   interval: 10,
@@ -41,38 +40,114 @@ const options = {
   maxQueryErrors: 5,
   allowDraft: false,
 } satisfies PollingOptions;
+const absent = { kind: "absent" } as const;
+
+function facts(patch: Partial<MergeRequestFacts> = {}): MergeRequestFacts {
+  return {
+    context: context(1),
+    state: "opened",
+    draft: false,
+    detailedMergeStatus: "mergeable",
+    mergeStatus: { kind: "ready" },
+    hasConflicts: false,
+    sha: "head",
+    sourceBranch: "feature",
+    targetBranch: "main",
+    mergedAt: null,
+    headPipeline: { id: 7, status: "success", projectId: null },
+    blockingDiscussionsResolved: true,
+    ...patch,
+  };
+}
 
 describe("readiness truth table", () => {
-  it("covers every specified row and every UNKNOWN rollup value", () => {
-    const cases: readonly [
-      PullRequestFacts["mergeStateStatus"],
-      RollupState,
-      "allowed" | "refused",
-    ][] = [
-      ["BLOCKED", "FAILURE", "refused"],
-      ["BLOCKED", "ERROR", "refused"],
-      ["BLOCKED", "PENDING", "allowed"],
-      ["UNSTABLE", "FAILURE", "allowed"],
-      ["UNKNOWN", "ERROR", "allowed"],
-      ["UNKNOWN", "EXPECTED", "allowed"],
-      ["UNKNOWN", "FAILURE", "allowed"],
-      ["UNKNOWN", "PENDING", "allowed"],
-      ["UNKNOWN", "SUCCESS", "allowed"],
-      ["UNKNOWN", null, "allowed"],
-      ["CLEAN", "SUCCESS", "allowed"],
-    ];
-    for (const [mergeStateStatus, headRollupState, expected] of cases) {
-      expect(
-        assessGitHubMerge({ mergeStateStatus, headRollupState }).kind
-      ).toBe(expected);
-    }
+  it("refuses only a clean job list when the pipeline failed and CI must pass", () => {
+    const base = facts({
+      detailedMergeStatus: "ci_must_pass",
+      mergeStatus: { kind: "pipeline-wait", raw: "ci_must_pass" },
+      headPipeline: { id: 7, status: "failed", projectId: null },
+    });
+    expect(
+      assessForgeMerge({ facts: base, failed: null, pending: null }).kind
+    ).toBe("refused");
+    expect(
+      assessForgeMerge({
+        facts: facts({ headPipeline: { id: 7, status: "failed", projectId: null } }),
+        failed: null,
+        pending: null,
+      }).kind
+    ).toBe("allowed");
+    expect(
+      assessForgeMerge({
+        facts: base,
+        failed: null,
+        pending: [pendingCheck()],
+      }).kind
+    ).toBe("allowed");
   });
 
-  it("turns a clean visible list plus GitHub refusal into an explicit CI blocker", async () => {
+  // ci_must_pass is GitLab's cached merge verdict; the head pipeline is the
+  // fact. Synthesising a pending check while the pipeline was already green
+  // left a row that was ci-clean and simultaneously WAITING on zero jobs, so
+  // with --timeout 0 it polled forever and never emitted READY.
+  for (const status of ["ci_must_pass", "ci_still_running"] as const) {
+    it(`reaches READY when ${status} sits on a settled head pipeline`, async () => {
+      const reader = fakeReader({
+        facts: {
+          detailedMergeStatus: status,
+          mergeStatus: { kind: "pipeline-wait", raw: status },
+          headPipeline: { id: 7, status: "success", projectId: null },
+        },
+        jobs: [passingCheck()],
+        pipelines: [{ id: 7, sha: "head", status: "success" }],
+      });
+      const snapshot = await readSnapshot({
+        reader,
+        context: context(1),
+        pendingHistory: "include",
+        allowDraft: false,
+      });
+      expect(snapshot.kind).toBe("open");
+      if (snapshot.kind !== "open") throw new Error("expected open snapshot");
+      expect(snapshot.ci.kind).toBe("ci-clean");
+      expect(classifyMr(snapshot)).toMatchObject({
+        kind: "ready",
+        mr: { proof: { ci: { kind: "ci-clean" } } },
+      });
+    });
+  }
+
+  it("still waits on ci_must_pass while the head pipeline has not settled", async () => {
     const reader = fakeReader({
-      facts: { mergeStateStatus: "BLOCKED" },
-      fastPath: { kind: "checks", checks: [passingCheck()] },
-      commitRollups: [{ oid: "head", state: "FAILURE" }],
+      facts: {
+        detailedMergeStatus: "ci_must_pass",
+        mergeStatus: { kind: "pipeline-wait", raw: "ci_must_pass" },
+        headPipeline: { id: 7, status: "running", projectId: null },
+      },
+      jobs: [passingCheck()],
+    });
+    const snapshot = await readSnapshot({
+      reader,
+      context: context(1),
+      pendingHistory: "include",
+      allowDraft: false,
+    });
+    if (snapshot.kind !== "open") throw new Error("expected open snapshot");
+    expect(classifyMr(snapshot)).toMatchObject({
+      kind: "waiting",
+      reason: { kind: "pending-checks", pending: [{ name: "pipeline" }] },
+    });
+  });
+
+  it("turns a clean visible list plus a forge refusal into an explicit CI blocker", async () => {
+    const reader = fakeReader({
+      facts: {
+        detailedMergeStatus: "ci_must_pass",
+        mergeStatus: { kind: "pipeline-wait", raw: "ci_must_pass" },
+        headPipeline: { id: 7, status: "failed", projectId: null },
+      },
+      jobs: [passingCheck()],
+      pipelines: [{ id: 7, sha: "head", status: "failed" }],
     });
     const snapshot = await readSnapshot({
       reader,
@@ -82,8 +157,8 @@ describe("readiness truth table", () => {
     });
     expect(snapshot.kind).toBe("open");
     if (snapshot.kind !== "open") throw new Error("expected open snapshot");
-    expect(snapshot.ci.kind).toBe("ci-github-rejected");
-    expect(classifyPr(snapshot)).toMatchObject({
+    expect(snapshot.ci.kind).toBe("ci-forge-rejected");
+    expect(classifyMr(snapshot)).toMatchObject({
       kind: "blocker",
       blocker: { kind: "failing-checks" },
     });
@@ -91,10 +166,8 @@ describe("readiness truth table", () => {
 });
 
 describe("snapshot query planning", () => {
-  it("does not query commit rollups while queued checks are pending", async () => {
-    const reader = fakeReader({
-      fastPath: { kind: "checks", checks: [pendingCheck()] },
-    });
+  it("does not query pipeline history while queued checks are pending", async () => {
+    const reader = fakeReader({ jobs: [pendingCheck()] });
     const snapshot = await readSnapshot({
       reader,
       context: context(2),
@@ -105,13 +178,13 @@ describe("snapshot query planning", () => {
     if (snapshot.kind !== "open") throw new Error("expected open snapshot");
     expect(snapshot.ci.kind).toBe("ci-pending");
     expect(reader.calls).toEqual([
-      "pullRequest",
-      "reviewThreads",
-      "checksFastPath",
+      "mergeRequest",
+      "discussions",
+      "pipelineJobs",
     ]);
   });
 
-  it("queries rollups for settled and failed lists", async () => {
+  it("queries pipeline history for settled and failed lists", async () => {
     const settled = fakeReader();
     await readSnapshot({
       reader: settled,
@@ -119,23 +192,21 @@ describe("snapshot query planning", () => {
       pendingHistory: "omit",
       allowDraft: false,
     });
-    expect(settled.calls).toContain("commitRollups");
+    expect(settled.calls).toContain("pipelines");
 
-    const failed = fakeReader({
-      fastPath: { kind: "checks", checks: [failedCheck()] },
-    });
+    const failed = fakeReader({ jobs: [failedCheck()] });
     await readSnapshot({
       reader: failed,
       context: context(4),
       pendingHistory: "omit",
       allowDraft: false,
     });
-    expect(failed.calls).toContain("commitRollups");
+    expect(failed.calls).toContain("pipelines");
   });
 
   it("short-circuits merged rows before threads and checks", async () => {
     const reader = fakeReader({
-      facts: { state: "MERGED", mergedAt: "2026-07-26T00:00:00Z" },
+      facts: { state: "merged", mergedAt: "2026-07-26T00:00:00Z" },
     });
     expect(
       (
@@ -147,22 +218,28 @@ describe("snapshot query planning", () => {
         })
       ).kind
     ).toBe("merged");
-    expect(reader.calls).toEqual(["pullRequest"]);
+    expect(reader.calls).toEqual(["mergeRequest"]);
   });
 });
 
 it("scans stacks tier-major so an upstack conflict outranks frontier CI", async () => {
   const frontier = await readSnapshot({
     reader: fakeReader({
-      fastPath: { kind: "checks", checks: [failedCheck()] },
-      commitRollups: [{ oid: "head", state: "FAILURE" }],
+      jobs: [failedCheck()],
+      pipelines: [{ id: 7, sha: "head", status: "failed" }],
     }),
     context: context(10),
     pendingHistory: "omit",
     allowDraft: false,
   });
   const upstack = await readSnapshot({
-    reader: fakeReader({ facts: { mergeable: "CONFLICTING" } }),
+    reader: fakeReader({
+      facts: {
+        hasConflicts: true,
+        detailedMergeStatus: "conflict",
+        mergeStatus: { kind: "conflict", raw: "conflict" },
+      },
+    }),
     context: context(11),
     pendingHistory: "omit",
     allowDraft: false,
@@ -170,11 +247,11 @@ it("scans stacks tier-major so an upstack conflict outranks frontier CI", async 
   const decision = selectTierMajorStackDecision([frontier, upstack]);
   expect(decision).toMatchObject({
     kind: "blocker",
-    blocker: { kind: "merge-conflicts", pr: { number: 11 } },
+    blocker: { kind: "merge-conflicts", mr: { iid: 11 } },
   });
 });
 
-it("attributes a stack wait to the PR whose checks are pending, not the bottom", async () => {
+it("attributes a stack wait to the MR whose checks are pending, not the bottom", async () => {
   const readyBottom = await readSnapshot({
     reader: fakeReader(),
     context: context(20),
@@ -182,9 +259,7 @@ it("attributes a stack wait to the PR whose checks are pending, not the bottom",
     allowDraft: false,
   });
   const pendingUpstack = await readSnapshot({
-    reader: fakeReader({
-      fastPath: { kind: "checks", checks: [pendingCheck("upstack-build")] },
-    }),
+    reader: fakeReader({ jobs: [pendingCheck("upstack-build")] }),
     context: context(21),
     pendingHistory: "omit",
     allowDraft: false,
@@ -192,77 +267,114 @@ it("attributes a stack wait to the PR whose checks are pending, not the bottom",
   const decision = selectTierMajorStackDecision([readyBottom, pendingUpstack]);
   expect(decision).toMatchObject({
     kind: "waiting",
-    frontier: { number: 21 },
-    pending: [{ name: "upstack-build" }],
+    frontier: { iid: 21 },
+    reason: { kind: "pending-checks", pending: [{ name: "upstack-build" }] },
   });
 });
 
 it("waits on a draft while checks are pending, then reports the draft gate", async () => {
   const pending = await readSnapshot({
     reader: fakeReader({
-      facts: { isDraft: true },
-      fastPath: { kind: "checks", checks: [pendingCheck()] },
+      facts: { draft: true, detailedMergeStatus: "draft_status", mergeStatus: { kind: "draft", raw: "draft_status" } },
+      jobs: [pendingCheck()],
     }),
     context: context(12),
     pendingHistory: "omit",
     allowDraft: false,
   });
-  expect(classifyPr(pending).kind).toBe("waiting");
+  expect(classifyMr(pending).kind).toBe("waiting");
 
   const settled = await readSnapshot({
-    reader: fakeReader({ facts: { isDraft: true } }),
+    reader: fakeReader({
+      facts: {
+        draft: true,
+        detailedMergeStatus: "draft_status",
+        mergeStatus: { kind: "draft", raw: "draft_status" },
+      },
+    }),
     context: context(12),
     pendingHistory: "omit",
     allowDraft: false,
   });
-  expect(classifyPr(settled)).toMatchObject({
+  expect(classifyMr(settled)).toMatchObject({
     kind: "blocker",
-    blocker: { kind: "merge-gate", reason: "draft-pr" },
+    blocker: { kind: "merge-gate", reason: "draft-mr" },
+  });
+});
+
+it("waits on approval and polls an unknown transient status", async () => {
+  const approval = await readSnapshot({
+    reader: fakeReader({
+      facts: {
+        detailedMergeStatus: "not_approved",
+        mergeStatus: { kind: "approval-wait", raw: "not_approved" },
+      },
+      approvals: { approved: false, approvalsLeft: 1 },
+    }),
+    context: context(13),
+    pendingHistory: "include",
+    allowDraft: false,
+  });
+  expect(classifyMr(approval)).toMatchObject({
+    kind: "waiting",
+    reason: { kind: "approval-wait", status: "not_approved", approvalsLeft: 1 },
+  });
+
+  const checking = await readSnapshot({
+    reader: fakeReader({
+      facts: {
+        detailedMergeStatus: "checking",
+        mergeStatus: { kind: "unknown-poll", raw: "checking" },
+      },
+    }),
+    context: context(14),
+    pendingHistory: "include",
+    allowDraft: false,
+  });
+  expect(classifyMr(checking)).toMatchObject({
+    kind: "waiting",
+    reason: { kind: "unknown-merge-status", raw: "checking" },
   });
 });
 
 describe("queued-stack cadence", () => {
-  async function openSnapshot(pr: PrContext) {
+  async function openSnapshot(mr: MrContext) {
     return readSnapshot({
       reader: fakeReader(),
-      context: pr,
+      context: mr,
       pendingHistory: "omit",
       allowDraft: false,
     });
   }
 
   it("drops a sweep head only after its snapshot succeeds", async () => {
-    const queue = [
-      context(20),
-      context(21),
-      context(22),
-    ] satisfies NonEmpty<PrContext>;
+    const queue = [context(20), context(21), context(22)] satisfies NonEmpty<MrContext>;
     let state = createQueueState(queue, 0);
     const first = await openSnapshot(queue[0]);
     state = applyQueueSnapshot(state, first, 0, options).state;
     expect(state.work).toMatchObject({
       kind: "whole-stack-sweep",
-      remaining: [{ number: 21 }, { number: 22 }],
+      remaining: [{ iid: 21 }, { iid: 22 }],
     });
     const second = await openSnapshot(queue[1]);
     state = applyQueueSnapshot(state, second, 60, options).state;
     expect(state.work).toMatchObject({
       kind: "whole-stack-sweep",
-      remaining: [{ number: 22 }],
+      remaining: [{ iid: 22 }],
     });
   });
 
-  it("resumes the sweep at the PR whose read failed", async () => {
+  it("resumes the sweep at the MR whose read failed", async () => {
     const middle = context(21);
     const base = fakeReader();
     let failNext = true;
     const timeline: string[] = [];
     const reader = {
       ...base,
-      async pullRequest(pr: PrContext) {
-        if (pr.number === middle.number && failNext) {
+      async mergeRequest(mr: MrContext) {
+        if (mr.iid === middle.iid && failNext) {
           failNext = false;
-          timeline.push(`fail:${pr.number}`);
+          timeline.push(`fail:${mr.iid}`);
           throw new WatcherQueryError({
             kind: "command-exit",
             retryable: true,
@@ -270,10 +382,10 @@ describe("queued-stack cadence", () => {
             code: 1,
           });
         }
-        timeline.push(`read:${pr.number}`);
-        return base.pullRequest(pr);
+        timeline.push(`read:${mr.iid}`);
+        return base.mergeRequest(mr);
       },
-    } satisfies GitHubReader;
+    } satisfies ForgeReader;
     let now = 0;
     let sleeps = 0;
     const running = runQueued({
@@ -312,7 +424,7 @@ describe("queued-stack cadence", () => {
   });
 
   it("emits a completed sweep only after its final successful snapshot", async () => {
-    const queue = [context(30), context(31)] satisfies NonEmpty<PrContext>;
+    const queue = [context(30), context(31)] satisfies NonEmpty<MrContext>;
     let state = createQueueState(queue, 0);
     const first = applyQueueSnapshot(
       state,
@@ -328,9 +440,9 @@ describe("queued-stack cadence", () => {
       5,
       options
     );
-    expect(
-      second.completedSweepRows?.map((row) => Number(row.context.number))
-    ).toEqual([30, 31]);
+    expect(second.completedSweepRows?.map((row) => Number(row.context.iid))).toEqual([
+      30, 31,
+    ]);
     expect(second.state.nextSweepAt).toBe(305);
   });
 
@@ -342,20 +454,16 @@ describe("queued-stack cadence", () => {
     const timeline: string[] = [];
     const reader = {
       ...base,
-      async pullRequest(pr: PrContext) {
-        timeline.push(`read:${pr.number}`);
-        const facts = await base.pullRequest(pr);
-        const count = (reads.get(pr.number) ?? 0) + 1;
-        reads.set(pr.number, count);
-        return pr.number === one.number && count > 1
-          ? {
-              ...facts,
-              state: "MERGED" as const,
-              mergedAt: "2026-07-26T00:00:00Z",
-            }
-          : facts;
+      async mergeRequest(mr: MrContext) {
+        timeline.push(`read:${mr.iid}`);
+        const row = await base.mergeRequest(mr);
+        const count = (reads.get(mr.iid) ?? 0) + 1;
+        reads.set(mr.iid, count);
+        return mr.iid === one.iid && count > 1
+          ? { ...row, state: "merged" as const, mergedAt: "2026-07-26T00:00:00Z" }
+          : row;
       },
-    } satisfies GitHubReader;
+    } satisfies ForgeReader;
     let now = 0;
     let sleeps = 0;
     const emitted: ProgressVerdict[] = [];
@@ -393,7 +501,7 @@ describe("queued-stack cadence", () => {
   });
 
   it("deduplicates identical waits and schedules the next due sweep", async () => {
-    const queue = [context(50)] satisfies NonEmpty<PrContext>;
+    const queue = [context(50)] satisfies NonEmpty<MrContext>;
     let state = createQueueState(queue, 0);
     state = applyQueueSnapshot(
       state,
@@ -401,11 +509,12 @@ describe("queued-stack cadence", () => {
       0,
       options
     ).state;
-    const first = evaluateQueue(state, 0, options);
+    const first = evaluateQueue(state, 0, options, absent);
     expect(first.kind).toBe("waiting");
     if (first.kind !== "waiting") throw new Error("expected waiting");
     expect(first.emit).toBe(true);
-    const second = evaluateQueue(first.state, 10, options);
+    expect(first.reason.kind).toBe("merge-train");
+    const second = evaluateQueue(first.state, 10, options, absent);
     expect(second.kind).toBe("waiting");
     if (second.kind !== "waiting") throw new Error("expected waiting");
     expect(second.emit).toBe(false);
