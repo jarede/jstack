@@ -13,7 +13,7 @@ means it is not finished: fix or report. Do not offer options on a red branch.
 
 ## Commits
 
-1. Rebase into small ordered commits. Each commit is one verified unit.
+1. Rebase only commits that were never pushed into small ordered commits. Once a commit is pushed, add new commits instead of rewriting it: a force-push is an Always pause item.
 2. Titles use Conventional Commits `type(scope): assunto`. Imperative subject, no final period.
 
 | Type | Use for |

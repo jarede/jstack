@@ -17,6 +17,7 @@ How to use the Index:
 One row per principle. Groups match the source table: 10 core, 6 architecture, 5 verification, 2 delegation, 1 meta.
 
 | Principle | Group | Rule | Applied in |
+|---|---|---|---|
 | laziness-protocol | core | Delete first. Make the smallest change that solves the problem. | [design.md](design.md) |
 | foundational-thinking | core | Name core types and data shapes before writing logic. Lay scaffold before features. | [design.md](design.md) |
 | redesign-from-first-principles | core | Rebuild the design as if the new requirement had been there from day one. Do not bolt it on. | [design.md](design.md) |

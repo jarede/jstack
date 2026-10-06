@@ -45,7 +45,7 @@ the task, never down.
 
 ## 3. Read the two rules files
 
-At the start of every task, read both rules files:
+At the start of every task that has a playbook, read both rules files (a direct answer with no playbook skips them):
 
 1. `biblioteca/principios.md` (the Index).
 2. `biblioteca/autonomia.md`.
@@ -98,12 +98,12 @@ Claude Code and opencode have different tools for asking, tracking and delegatin
 | [principios.md](biblioteca/principios.md) | principle index; read at the start of every task |
 | [autonomia.md](biblioteca/autonomia.md) | when to proceed, when to pause, how to report |
 | [medicao.md](biblioteca/medicao.md) | trusting, reporting and acting on a number |
-| [design.md](biblioteca/design.md) | size, questions, options, prototypes, spec |
+| [design.md](biblioteca/design.md) | size, options, architect sketch, spec |
 | [plano.md](biblioteca/plano.md) | file map, throughput checkpoint, tasks, review focus, worktrees, hand-off |
 | [verificacao.md](biblioteca/verificacao.md) | the gate, evidence ladder, checks that lie, golden outputs, verdicts |
 | [testes.md](biblioteca/testes.md) | when to test first, tests that can fail, when to skip |
 | [debugging.md](biblioteca/debugging.md) | reproduce, root cause, three failed fixes, fix at the cause |
-| [finalizacao.md](biblioteca/finalizacao.md) | options, PR body, clean up |
+| [finalizacao.md](biblioteca/finalizacao.md) | commits, deliver branch and PR, PR body, clean up |
 | [revisao-recebida.md](biblioteca/revisao-recebida.md) | handling review findings |
 | [modelos.md](biblioteca/modelos.md) | model per role, `/jstack-setup` |
 | [ferramentas.md](biblioteca/ferramentas.md) | tool equivalents between harnesses |

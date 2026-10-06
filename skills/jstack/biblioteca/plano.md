@@ -17,7 +17,7 @@ Adapted from superpowers `writing-plans`, `using-git-worktrees` (Jesse Vincent, 
 
 ## Throughput checkpoint
 
-This checkpoint applies to every non-trivial multi-step task, plan or no plan. Write it as four
+This checkpoint applies to feature work and to any task that fans out to more than one worker, plan or no plan. Write it as four
 todo items. Answer each one, or mark it `n/a: <motivo>`:
 
 1. Blocking first steps (what must exist before anything can run in parallel).

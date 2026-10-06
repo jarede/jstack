@@ -14,8 +14,7 @@ Best at age and links: when the object last changed, what it touches, what the n
 
 ## How to dig
 
-1. Confirm the connection is not production before any query.
-2. Find the object and its age:
+1. Find the object and its age:
 
 ```sql
 SELECT object_name, object_type, created, last_ddl_time, status
@@ -23,7 +22,7 @@ FROM all_objects
 WHERE object_name = '<NAME>';
 ```
 
-3. Read the stored text around the target lines:
+2. Read the stored text around the target lines:
 
 ```sql
 SELECT line, text
@@ -32,14 +31,14 @@ WHERE name = '<NAME>' AND type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE', 'TRIGGER'
 ORDER BY line;
 ```
 
-4. Read the table and column notes:
+3. Read the table and column notes:
 
 ```sql
 SELECT table_name, comments FROM all_tab_comments WHERE table_name = '<NAME>';
 SELECT table_name, column_name, comments FROM all_col_comments WHERE table_name = '<NAME>';
 ```
 
-5. Map what leans on it and what it leans on:
+4. Map what leans on it and what it leans on:
 
 ```sql
 SELECT name, type, referenced_name, referenced_type
@@ -47,13 +46,13 @@ FROM all_dependencies
 WHERE name = '<NAME>' OR referenced_name = '<NAME>';
 ```
 
-6. Read header comment blocks for dates or ticket references. Quote them verbatim.
-7. Search names with `LIKE '<PART>%'` when the exact name is unsure. Go wide first.
+5. Read header comment blocks for dates or ticket references. Quote them verbatim.
+6. Search names with `LIKE '<PART>%'` when the exact name is unsure. Go wide first.
 
 ## Hard rules
 
 1. `SELECT` only. Never INSERT, UPDATE, DELETE, MERGE, DDL, or job runs.
-2. Production connection: ask first. Else use a copy.
+2. SELECT on any connection, production included, is allowed (`../../../jstack/biblioteca/autonomia.md`, Just do it). Writes are never allowed.
 3. Cite the view, the object name, and the query run.
 
 ## Strong proof here

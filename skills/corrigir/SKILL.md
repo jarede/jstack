@@ -18,7 +18,7 @@ Design the repo so a change that looks right from one file is right for the whol
 1. Read recent history: `git log`, reverts, and review comments (`gh` or `glab`, whichever the remote uses).
 2. Read `.agentes/decisoes.tsv` and `.agentes/revisao-*.md` from orquestra runs, plus interrogar reports.
 3. Read the repo AGENTS.md and CLAUDE.md, and this project's Claude Code memory files of feedback type only.
-4. Group repeated mistakes into classes. A class counts after it happened twice.
+4. Group repeated mistakes into classes. A class counts after it happened twice, or when the user names it.
 5. Rank classes by frequency. Fix the most frequent first, one commit per class.
 
 ## 2. Fix each class at the highest level that works

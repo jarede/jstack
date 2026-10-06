@@ -15,7 +15,7 @@ this contract.
    writes to a file.
 4. Each iteration makes the smallest change the evidence justifies, verifies it against the
    predicate, commits if it advanced, discards it otherwise. One row per iteration in
-   `decisoes.tsv`.
+   `.agentes/decisoes.tsv`.
 5. Mid-run discoveries are yours (broken skill, flaky check, related bug: fix in its own commit).
    Do not park reversible work. Surface only Always pause items, product calls, or a real dead end.
 6. A plateau is not a stop: change direction. Never relax the predicate.
@@ -41,6 +41,8 @@ this contract.
 ```
 hora	fase	decisao	motivo	evidencia	resultado
 ```
+
+Path: `.agentes/decisoes.tsv`. Wrapped perf attempts go to `.agentes/medicoes.tsv` (see [perf](perf.md)).
 
 Evidence is a pointer (file, commit, log line), never prose.
 

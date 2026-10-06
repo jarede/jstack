@@ -11,7 +11,7 @@ Reversible work proceeds without asking:
 1. Read anything: files, logs, tickets, docs, history.
 2. Run SELECT queries against any reachable database.
 3. Edit code on the work branch.
-4. Create a branch or worktree yourself. Never commit on `main` or another shared branch.
+4. Create a branch or worktree yourself: name it `<tipo>/<tema>` (feat, fix, perf, refactor, chore) from the repo's default branch. Never commit on `main` or another shared branch.
 5. Commit on the work branch, one verified unit per commit.
 6. Run tests, linters and the project checks.
 7. Build prototypes in a scratch folder, never in production source.
@@ -27,9 +27,11 @@ Ask first, every time, for irreversible work:
 2. Force-push anywhere.
 3. Deploy anything, anywhere.
 4. Any INSERT, UPDATE, DELETE, MERGE, DDL or job run against a production or shared database. This includes reproducing a bug or capturing golden outputs. Use a non-production copy or the output of a past run instead.
-5. Delete data, branches with unmerged work, or files you did not create in this task.
+5. Delete data, branches with unmerged work, or untracked files you did not create. Deleting tracked code on the work branch is an ordinary, reversible edit.
 6. Send any message that reaches a requester, a customer or another team: public ticket reply, e-mail, chat.
 7. Use a model or tier that is not in `~/.config/jstack/modelos.conf`.
+
+A request that names the action in the user's own message ("corrige e já faz o deploy") is the answer for that action only. Still run it only after verification is green, and say what goes where right before running it. No documented procedure for it: BLOQUEADO, and ask how.
 
 While one item waits for the user, keep doing the work that does not depend on it. Park the blocked item. Do not wait on it.
 

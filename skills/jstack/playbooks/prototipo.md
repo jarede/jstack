@@ -1,8 +1,9 @@
-# prototipo
+# Playbook: prototipo
+
 Adapted from pstack prototype, principle-exhaust-the-design-space (Lauren Tan, MIT).
 
-Use for: settling a design or behaviour fork cheaply by observing it (cursor vs BULK COLLECT, which layout, which query shape), or when [autonomia](../biblioteca/autonomia.md) (`../biblioteca/autonomia.md`, Before you ask) sends a question here.
-Speed over polish. The prototype is throwaway; the real build follows. No waiting.
+Use for: settling a design or behaviour fork cheaply by observing it (cursor vs BULK COLLECT, which layout, which query shape), or when [autonomia](../biblioteca/autonomia.md) (Before you ask) sends a question here.
+Speed over polish. The prototype is throwaway; the real build follows. No waiting. Size is always **spike**.
 
 ## Steps
 
@@ -19,7 +20,7 @@ Speed over polish. The prototype is throwaway; the real build follows. No waitin
 | B | timing, output, row counts | what it costs |
 
 7. State one recommendation and say plainly the prototype is throwaway.
-8. Continue the parent playbook at once with the chosen direction ([bug](bug.md), [perf](perf.md), or [feature](feature.md)); do not wait.
+8. Continue the parent playbook at once with the chosen direction ([bug](bug.md), [perf](perf.md), [feature](feature.md) or [portagem](portagem.md)); do not wait.
 
 ## Done means
 

@@ -34,7 +34,7 @@ você, pausa só por ações irreversíveis. Plano escrito só para trabalho mul
 | [investigacao](skills/jstack/playbooks/investigacao.md) | Perguntas só de leitura: como funciona, por que é assim, X ou Y |
 | [bug](skills/jstack/playbooks/bug.md) | Reproduzir, achar a causa raiz, corrigir |
 | [perf](skills/jstack/playbooks/perf.md) | Lentidão medida ou regressão de tempo ou recursos |
-| [feature](skills/jstack/playbooks/feature.md) | Comportamento novo: design → plano → execução → testes → revisão |
+| [feature](skills/jstack/playbooks/feature.md) | Comportamento novo: forma dos dados → execução → testes → revisão; plano só se for multi-fase ou delegado |
 | [portagem](skills/jstack/playbooks/portagem.md) | Portar, migrar ou refatorar mantendo o comportamento: golden outputs, paridade, revisão |
 | [prototipo](skills/jstack/playbooks/prototipo.md) | Decidir um fork de design ou comportamento observando, sem perguntar |
 | [longa](skills/jstack/playbooks/longa.md) | Execução de horas sem supervisão, com contrato, `decisoes.tsv` e auditoria no fim |
@@ -170,7 +170,6 @@ O check e os testes rodam no GitHub Actions a cada push.
 
 Fora do escopo da primeira versão do processo:
 
-- refactors pelo playbook de portagem (sem playbook próprio);
 - skill de verificação do projeto (dirigir o app como um usuário);
 - automação de PR (acompanhar CI e revisões).
 

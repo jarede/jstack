@@ -51,10 +51,11 @@ Mine the current session for durable learnings. Turn each one into a concrete ed
 
 1. Present Accepted, Rejected, Backlog to the user.
 2. Then apply the Accepted edits without waiting. They are reversible commits on a work branch of the skills repo.
-3. Find the repo: run `cd ~/.claude/skills/jstack && pwd -P`, then go two levels up.
+3. Find the repo: run `cd ~/.claude/skills/jstack && pwd -P`, then go two levels up. That checkout is installed live: never switch its branch. Create a worktree for the edits (`git worktree add -b chore/refletir-<tema> <repo>/.claude/worktrees/refletir-<tema>`) and work there.
 4. Route each edit per `../jstack/biblioteca/skills.md`: a substantive edit or a new skill needs its RED and GREEN runs; a one-line fix does not.
 5. Write Backlog items to `.agentes/refletir-backlog.md` of the skills repo.
-6. Finish per `../jstack/biblioteca/finalizacao.md`.
+6. Run `just check` and `just test` in that worktree; commit only with both green.
+7. Finish per `../jstack/biblioteca/finalizacao.md`.
 
 ## 6. Summarize
 

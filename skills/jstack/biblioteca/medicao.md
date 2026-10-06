@@ -29,7 +29,7 @@ Answer each question with evidence from a run, not from a guess about the code.
    error count, add the count.
 5. **Repeatability.** Take the median of N runs, alternating the sides (A, B, A, B). Run each side
    at least 5 times so warmup and drift hit both. Report the median and the range. A gap smaller
-   than run-to-run noise is no measurable difference.
+   than run-to-run noise is no measurable difference. When one run takes minutes, run each side 3 times, interleaved, or measure a representative subset of the data; say which in the report.
 6. **Relevance.** Measure the end-to-end path the user waits on, with realistic size and load.
    Report the piece as a share of the whole. A piece at 1% of the run buys at most 1% when fully
    fixed.

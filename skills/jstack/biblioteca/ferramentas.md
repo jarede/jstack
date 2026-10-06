@@ -24,7 +24,7 @@ model".
 | Read / edit files | `Read`, `Edit`, `Write` | `read`, `edit`, `write`, `patch` |
 | Load an on-demand skill | the user types `/jstack`, `/jstack-setup`, `/por-que`, `/corrigir`, `/refletir` | the user types `/jstack`, `/jstack-setup`, `/por-que`, `/corrigir`, `/refletir` (commands) or `@jstack`; the model cannot load these with `skill` — read the file instead |
 | Wait in the background or keep going | `run_in_background` or `/loop` | a background shell command writing to a file |
-| Read a previous session | `~/.claude/projects/<cwd with / replaced by ->/*.jsonl`, newest first | this directory's session in `~/.local/share/opencode/opencode.db` |
+| Read a previous session | `~/.claude/projects/<cwd with / and . replaced by ->/*.jsonl`, newest first | this directory's session in `~/.local/share/opencode/opencode.db` |
 
 ## Rules that hold in both
 

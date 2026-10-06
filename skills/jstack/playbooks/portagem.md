@@ -31,7 +31,7 @@ spec first.
 
 - The parity check passes for every ported unit, with its output shown, over a non-empty input.
 - Each task has a verdict (VERIFICADO / INCONCLUSIVO / BLOQUEADO) tied to a commit.
-- Every behaviour difference from the source is listed and was approved by the user.
+- Every behaviour difference from the source is listed in the PR; a difference others depend on waits for the user's call.
 
 ## Pause only for
 
