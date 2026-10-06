@@ -1,0 +1,17 @@
+name: check
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 scripts/check.py
+      - name: install dry-run in a temp HOME
+        run: |
+          export HOME="$(mktemp -d)"
+          bash scripts/install.sh
+          bash scripts/status.sh
+          bash scripts/uninstall.sh

@@ -1,0 +1,17 @@
+# Manifesto: <skill> <alvo>
+#
+# alvo:
+#   claude    -> link em ~/.claude/skills/        (Claude Code; o opencode 2 tambem le esta pasta)
+#   opencode  -> link em ~/.config/opencode/skills/ (so o opencode)
+#
+# Nao use os dois para a mesma skill: o opencode 2 le as duas pastas e a skill apareceria duplicada.
+
+orchestrating-engineer-reviewer-implementer  claude
+orchestrating-herdr-agents                   claude
+interrogating-with-opencode                  claude
+running-an-arena-with-opencode               claude
+triaging-desk-tickets                        claude
+
+custo-sessao                                 opencode
+english-tutor                                opencode
+simplified-technical-english                 opencode
