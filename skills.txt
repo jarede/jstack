@@ -13,6 +13,10 @@ orchestrating-herdr-agents                   claude
 interrogar                                   claude
 arena                                        claude
 triaging-desk-tickets                        claude
+como-funciona                                claude
+por-que                                      claude sob-demanda
+corrigir                                     claude sob-demanda
+refletir                                     claude sob-demanda
 
 custo-sessao                                 opencode
 english-tutor                                opencode
