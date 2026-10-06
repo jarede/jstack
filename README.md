@@ -4,9 +4,9 @@ Minhas skills pessoais para agentes de código: **Claude Code** e **opencode**. 
 fonte única delas. As pastas de skills de cada ferramenta só contêm links simbólicos para cá.
 
 > **Inspiração:** o jstack é inspirado no [pstack](https://github.com/cursor/plugins/tree/main/pstack),
-> do [poteto](https://x.com/poteto) (Lauren Tan): o conjunto de skills que ele usa no dia a dia no
+> da [poteto](https://x.com/poteto) (Lauren Tan): o conjunto de skills que ela usa no dia a dia no
 > Cursor. O pstack mostrou o valor de juntar processo, princípios e workflows multi-modelo num pacote
-> só, versionado e mantido como código. Várias skills daqui adaptam ideias e textos dele
+> só, versionado e mantido como código. Várias skills daqui adaptam ideias e textos dela
 > (rubrica de revisão adversarial, arena, triagem de chamados, checklist de revisão). Veja
 > [NOTICE.md](NOTICE.md) para a atribuição e a licença MIT do pstack.
 
