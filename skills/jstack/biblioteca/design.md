@@ -1,62 +1,71 @@
 # Design
 
-**Goal: an understanding the user can recognise and correct, approved before any code.**
+**Goal: the right shape named before logic is written; the user corrects course after seeing it.**
 
 Adapted from superpowers `brainstorming` (Jesse Vincent, MIT) and pstack `architect`,
 `design-red-flags`, `prototype` (Lauren Tan, MIT).
 
 ## Size
 
-Classify before the first question, and say the classification out loud so the user can override:
+Classify before the first question, and say the classification out loud so the user can redirect:
 
 - **spike** — a feasibility question ("dá pra…", "is it possible…") or a read-only investigation
-  ("por que…"). Output is an answer, not code you keep. Say the question and the cheapest probe in 2–3 sentences, get a nod, find out, report.
+  ("por que…"). Output is an answer, not code you keep. State the question and the cheapest probe
+  in 2–3 sentences, then find out and report. No nod needed.
 - **delimitado** — a small, contained unit of work: a change to a flow that already exists in this
-  repo (a flag, a field, a one-file fix), or one function, query or view to port. Short design in chat, approval, then build. No spec file.
+  repo (a flag, a field, a one-file fix), or one function, query or view to port. Name the data
+  shape and the files, write the short design in the reply, then build. No spec file.
 - **arquitetural** — a new project or subsystem, a change to how components fit, or an interface
-  others depend on. Full path: questions, options, sectioned design, written spec, plan.
+  others depend on. Full path: the Architect sketch below, then build or plan per `plano.md`
+  (When to write a plan).
 
 When in doubt, take the heavier one. The size is provisional until you have read what the work
-touches (the source to port, the code around the bug); fix it then. After work starts, size only goes up: if hidden complexity appears,
-stop, say so, and move to the heavier path.
+touches (the source to port, the code around the bug); fix it then. After work starts, size only
+goes up: if hidden complexity appears, stop, say so, and move to the heavier path.
 
 ## Understand
 
 1. Read the repo first: files, docs, recent commits, the project's AGENTS.md or CLAUDE.md.
-2. Anything you can find out by reading or running something is **not** a question for the user.
-3. Ask what is left **one question per message**, multiple choice when possible. Purpose,
-   constraints and what success looks like come before features.
-4. Write back the understanding: what the user said, separated from your assumptions. Invite
-   correction.
+2. For what to settle yourself and what to ask, follow `autonomia.md` (Before you ask).
+3. Write back the understanding: what the user said, separated from your assumptions. State it so
+   the user can correct it.
 
 If the request is really several independent systems, say so and design the first one only.
 
 ## Options
 
-Propose 2–3 approaches with their trade-offs, your recommendation first and why. Remove every
-feature the goal does not need (YAGNI). Prefer the approach a future maintainer can extend without
-breaking invariants.
+1. List 2–3 approaches with trade-offs, recommendation first with its reason. Remove every
+   feature the goal does not need (YAGNI). Prefer the approach a future maintainer can extend
+   without breaking invariants.
+2. Choose the recommendation and proceed with it.
+3. Show the alternatives in the reply as a table:
 
-## Prototype when observation settles it
+| Approach | Cost | Risk | Verdict |
+|---|---|---|---|
+| Recommended shape | Small, touches one module | Low | Proceed |
+| Alternative shape | Larger, touches two modules | Medium | Rejected, reason in one line |
 
-When the question is "which works better" and watching it would answer faster than arguing, build
-a throwaway: the smallest script, page or query that exercises the question, in a scratch folder.
-Show the observed result, recommend, and say plainly that the prototype is thrown away. The real
-build follows the normal path.
+## Architect sketch
 
-## Present and approve
+1. Name the data shape first and its organizing structure: a state machine over scattered
+   booleans, a table over branching, a typed model over repeated shape assumptions.
+2. Write the caller's usage first, before types.
+3. Then write types and signatures.
+4. Then write the module layout: files, owners, boundaries.
+5. When the change crosses a function boundary and more than one shape is plausible, run 2–3
+   sketches in parallel fresh subagents (Claude Code `Agent` tool or opencode `subagent` tool,
+   models from `modelos.md`) and pick one, with reasons stated in the reply.
+6. Stay in the loop while implementation fills the sketch in: a deviation is signal, not friction.
+   When the same shape of workaround repeats, re-sketch instead of bolting fixes on.
 
-- **delimitado:** a few sentences to a few short paragraphs — approach, files touched, how it will
-  be verified. Then **stop and wait for a yes**. Presenting and starting in the same breath skips
-  the gate.
-- **arquitetural:** present the design in sections (architecture, components, data flow, errors,
-  verification), each sized to its complexity, asking after each whether it is right. Then write
-  the spec to `docs/specs/AAAA-MM-DD-<tema>.md`, commit it, and self-review it: placeholders,
-  contradictions between sections, requirements readable two ways, scope too big for one plan.
-  Fix inline. Ask the user to review the file; continue to `plano.md` only after they approve it.
+When observation settles the fork faster than argument, follow `../playbooks/prototipo.md`.
 
-An approval covers the stage that was shown. Approving an idea does not approve a spec that does
-not exist yet.
+## Present
+
+1. Show the named shape, the alternatives table, the files touched, and the verification. Then
+   keep building; the work continues in the same session.
+2. Write the spec to `docs/specs/AAAA-MM-DD-<tema>.md` only when the work goes to orquestra or
+   longa, or when the user asks. No spec file otherwise.
 
 ## Design red flags
 
@@ -75,7 +84,6 @@ shortest path that works. Make the right path the shortest one.
 
 ## Never
 
-- Write code, scaffold or install dependencies before the design for its size is approved.
+- Write logic before naming the data shape.
 - Run an adversarial or multi-model review of a plan that has no code behind it: reviewers invent
   risks that never happen. Prototype instead, then review the code.
-- Turn one approval into permission for the next stage.

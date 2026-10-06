@@ -1,25 +1,39 @@
 # Plan
 
-For **arquitetural** work, after the spec is approved. Save to `docs/planos/AAAA-MM-DD-<tema>.md`
-and commit. A plan is written for an implementer who is skilled but knows nothing about this
-codebase and has questionable taste: everything they need is in the plan.
+For work that needs a written plan. Most work does not.
 
 Adapted from superpowers `writing-plans`, `using-git-worktrees` (Jesse Vincent, MIT) and pstack
 `sequence-verifiable-units`, `feature` playbook (Lauren Tan, MIT).
+
+## When to write a plan
+
+1. Write a plan only when the work spans phases or several PRs, when it runs under orquestra or
+   longa (both need a written plan), or when the user asks.
+2. One or two files with an obvious approach: no plan. Say so and proceed.
+3. The best spec is code. Settle open questions with a prototype per `../playbooks/prototipo.md`
+   before writing the plan.
+4. Save the plan to `docs/planos/AAAA-MM-DD-<tema>.md` and commit. Write it for an implementer
+   who is skilled but knows nothing about this codebase: everything they need is in the plan.
+
+## Throughput checkpoint
+
+This checkpoint applies to every non-trivial multi-step task, plan or no plan. Write it as four
+todo items. Answer each one, or mark it `n/a: <motivo>`:
+
+1. Blocking first steps (what must exist before anything can run in parallel).
+2. Independent workstreams (disjoint files, services or layers run in parallel; shared writes
+   serialize).
+3. Shared mutable state (the same file, table, branch or key written by two tasks).
+4. Smallest safe decomposition (if one worker is best, say why).
+
+**Independence is about files, not about how the plan words the tasks.** Two tasks that edit
+the same module are not independent. When in doubt, serialise.
 
 ## Before tasks
 
 1. **File map** — every file created or modified, with its one responsibility. Files that change
    together live together.
-2. **Throughput checkpoint** — four items, each answered (or `n/a: <motivo>`):
-   - blocking first steps (what must exist before anything can run in parallel);
-   - independent workstreams;
-   - shared mutable state (the same file, table, branch or key written by two tasks);
-   - smallest safe decomposition (if one worker is best, say why).
-
-   **Independence is about files, not about how the plan words the tasks.** Two tasks that edit
-   the same module are not independent. When in doubt, serialise.
-3. Header: goal (one sentence), architecture (2–3 sentences), stack, path to the spec, and
+2. Header: goal (one sentence), architecture (2–3 sentences), stack, path to the spec, and
    **global constraints** copied verbatim from the spec.
 
 ## Tasks
@@ -43,15 +57,17 @@ the code. An empty list means you looked and found none.
 
 ## Workspace
 
-Use a git worktree when agents work in parallel, when the run is long, or when the work is risky:
+1. Work on a work branch or worktree you create yourself. Never commit on `main` or another
+   shared branch. Creating the branch or worktree needs no consent.
+2. Use a git worktree when agents work in parallel, when the run is long, or when the work is risky:
 
 ```bash
 git worktree add -b <branch> ../<repo>-<tema> <base>
 ```
 
-Before the first task, run the project's checks in the worktree and confirm they are green, so a
-failure you see later is yours. Copy or link what git does not carry: `opencode.json`, `.venv`,
-`.env`, local config. Never start on `main` without the user's consent.
+3. Before the first task, run the project's checks in the worktree and confirm they are green, so a
+   failure you see later is yours. Copy or link what git does not carry: `opencode.json`, `.venv`,
+   `.env`, local config.
 
 ## Self-review
 
@@ -60,12 +76,14 @@ signatures match across tasks, no placeholder survived, the review focus has tes
 
 ## Hand-off
 
-Link the plan and ask the user to review it and choose how to run it:
+1. Pick the execution mode yourself, with the reason from the plan (how coupled the tasks are, how
+   many, what a mistake costs):
 
-- **inline** — you implement each task in this session, then one fresh review of the whole branch;
-- **orquestra** — opencode reviewer and implementers (skill `orquestra`), models from
-  `modelos.md`;
-- **arena** — for one task whose shape is open (skill `arena`).
+| Mode | When |
+|---|---|
+| **inline** | You implement each task in this session, then one fresh review of the whole branch |
+| **orquestra** | Many tasks for reviewers and implementers (skill `orquestra`), models from `modelos.md` |
+| **arena** | One task whose shape is open (skill `arena`) |
 
-Recommend one, with the reason taken from the plan (how coupled the tasks are, how many, what a
-mistake would cost).
+2. State the pick and the reason in the reply, then start.
+3. The user can redirect.

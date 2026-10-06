@@ -1,43 +1,58 @@
 # Finishing
 
-**Never merge, push, open a PR or delete a branch without the user choosing it.**
+**Every playbook ends by delivering a reviewable branch. Merging into a shared branch pauses for
+the user (`autonomia.md`, Always pause).**
 
 Adapted from superpowers `finishing-a-development-branch` (Jesse Vincent, MIT) and pstack
 `opening-a-pr` (Lauren Tan, MIT).
 
 ## Verify
 
-Run the project's full checks (tests, lint, the task's check scripts) and paste the result
-(`verificacao.md`, the gate). Red → it is not finished; fix or report. Do not offer options on a
-red branch.
+Run the project's full checks (tests, lint, the task's check scripts) and paste the result. Red
+means it is not finished: fix or report. Do not offer options on a red branch.
 
-## Options
+## Commits
 
-Find the base branch (`git merge-base`, or the branch the work started from) and present exactly:
+1. Rebase into small ordered commits. Each commit is one verified unit.
+2. Titles use Conventional Commits `type(scope): assunto`. Imperative subject, no final period.
 
-1. **Merge locally** into `<base>`.
-2. **Push and open a PR / MR** (GitHub `gh`, GitLab `glab` — use what the repo uses).
-3. **Keep the branch** as it is, for later.
-4. **Discard** the work — only after the user types an explicit confirmation, because it cannot be
-   undone.
+| Type | Use for |
+|---|---|
+| feat | A new behaviour |
+| fix | A bug fix |
+| docs | Docs only |
+| refactor | A change that keeps behaviour |
+| test | Tests only |
+| chore | Tooling, config, chores |
+| perf | A measured speed-up |
 
-Wait for the choice. Execute only that one.
+## Deliver
+
+1. Default, no question: push the work branch. Push and open a ready PR or MR with `gh` or
+   `glab`, whichever the remote uses; never a draft. Post the URL.
+2. No remote: keep the branch and say so.
+3. Opening a PR does not start babysitting. Keep building or stop; return only when the user asks.
+
+## Only on request
+
+Merge, landing, or discarding happen only when the user asks. Discarding needs an explicit
+confirmation typed by the user; it cannot be undone.
 
 ## PR body
 
-Write it as a briefing for someone who did not watch the work:
+Write it as a briefing for a reviewer who did not watch the work. Under a minute to read. No
+SHAs, no file-by-file lists. Use these sections, in order; drop one when it has nothing to say:
 
-- **O que mudou** — in two or three lines.
-- **Por quê** — the problem or the request, with the ticket or issue reference.
-- **Como foi verificado** — the commands and their results, golden-output diffs, reproduction
-  before/after.
-- **Riscos** — what could break, and where to look first.
-- **Desvios do plano** — what was done differently and why.
-
-A verdict is tied to the commit it reviewed: if the branch moves after review, say so.
+- `## Por quê` — the problem or the request, with the ticket or issue reference.
+- `## O que mudou` — two or three lines on what changed.
+- `## Escopo` — what it covers and what it leaves out.
+- `## Trade-offs` — only rejected alternatives a reviewer would ask about.
+- `## Raio de impacto` — who or what it touches, and why that is safe or risky.
+- `## Verificação` — 1 to 3 bullets, each a real command and its result; perf as one number
+  `antes → depois`.
 
 ## Clean up
 
-After the choice is done: remove the worktrees created for this work (`git worktree remove`),
-close terminal tabs or panes you opened, and remove scratch files you created. Keep `.agentes/`
-reports until the user no longer needs them. Never clean up before the choice.
+1. Close tabs, panes and scratch files you opened.
+2. Remove a worktree only after its branch is pushed.
+3. Keep `.agentes/` reports.
