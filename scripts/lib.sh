@@ -4,11 +4,19 @@ JSTACK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST="$JSTACK_ROOT/skills.txt"
 CLAUDE_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 OPENCODE_DIR="${OPENCODE_SKILLS_DIR:-$HOME/.config/opencode/skills}"
+OPENCODE_COMMANDS_DIR="${OPENCODE_COMMANDS_DIR:-$HOME/.config/opencode/commands}"
+RENAMED="$JSTACK_ROOT/renomeadas.txt"
 BACKUP_ROOT="${JSTACK_BACKUP_DIR:-$HOME/.jstack-backup}"
 
 # Prints "<skill> <target>" for each manifest line, without comments or blank lines.
 manifest_entries() {
   sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$MANIFEST" | awk '{print $1, $2}'
+}
+
+# Prints "<old> <new>" for each renamed skill.
+renamed_entries() {
+  [ -f "$RENAMED" ] || return 0
+  sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$RENAMED" | awk '{print $1, $2}'
 }
 
 target_dir() {

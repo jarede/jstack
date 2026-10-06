@@ -15,6 +15,16 @@ run() { if [ $DRY = 1 ]; then echo "  (dry-run) $*"; else "$@"; fi; }
 STAMP="$(date +%Y%m%d-%H%M%S)"
 status=0
 
+# Remove links of ours that still use a skill's old name.
+while read -r old new; do
+  for dir in "$CLAUDE_DIR" "$OPENCODE_DIR"; do
+    if is_our_link "$dir/$old"; then
+      echo "rm    $old (renomeada para $new)"
+      run rm "$dir/$old"
+    fi
+  done
+done < <(renamed_entries)
+
 while read -r skill target; do
   src="$JSTACK_ROOT/skills/$skill"
   if [ ! -f "$src/SKILL.md" ]; then
@@ -49,5 +59,26 @@ while read -r skill target; do
   echo "link  $skill -> $dest"
   run ln -s "$src" "$dest"
 done < <(manifest_entries)
+
+# opencode commands (commands/opencode/*.md), same backup rule as skills.
+if [ -d "$JSTACK_ROOT/commands/opencode" ]; then
+  run mkdir -p "$OPENCODE_COMMANDS_DIR"
+  for src in "$JSTACK_ROOT"/commands/opencode/*.md; do
+    [ -e "$src" ] || continue
+    dest="$OPENCODE_COMMANDS_DIR/$(basename "$src")"
+    if is_our_link "$dest" && [ "$(readlink "$dest")" = "$src" ]; then
+      echo "ok    comando $(basename "$src")"
+      continue
+    fi
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+      backup="$BACKUP_ROOT/$STAMP/commands"
+      echo "bkp   comando $(basename "$src") -> $backup/"
+      run mkdir -p "$backup"
+      run mv "$dest" "$backup/"
+    fi
+    echo "link  comando $(basename "$src") -> $dest"
+    run ln -s "$src" "$dest"
+  done
+fi
 
 exit $status

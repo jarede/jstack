@@ -17,6 +17,17 @@ while read -r skill target; do
   printf "  %-46s %-9s %s\n" "$skill" "$target" "$state"
 done < <(manifest_entries)
 
+if [ -d "$JSTACK_ROOT/commands/opencode" ]; then
+  echo
+  echo "Comandos opencode:"
+  for src in "$JSTACK_ROOT"/commands/opencode/*.md; do
+    [ -e "$src" ] || continue
+    dest="$OPENCODE_COMMANDS_DIR/$(basename "$src")"
+    if is_our_link "$dest" && [ "$(readlink "$dest")" = "$src" ]; then state="instalado"; else state="NAO instalado (rode just install)"; fi
+    printf "  %-46s %s\n" "$(basename "$src")" "$state"
+  done
+fi
+
 echo
 echo "Fora do jstack (pastas reais, sem link):"
 found=0

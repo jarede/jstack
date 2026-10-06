@@ -11,11 +11,12 @@ Checks, per skill:
 Warnings (do not fail): description without a "when to use" cue, SKILL.md over 500 lines.
 Usage: python3 scripts/check.py
 """
+import os
 import pathlib
 import re
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+ROOT = pathlib.Path(os.environ.get("JSTACK_ROOT") or pathlib.Path(__file__).resolve().parent.parent)
 SKILLS = ROOT / "skills"
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
@@ -49,16 +50,17 @@ def manifest():
         if not line:
             continue
         parts = line.split()
-        if len(parts) != 2 or parts[1] not in ("claude", "opencode"):
-            errors.append(f"skills.txt:{n}: esperado '<skill> <claude|opencode>', veio {raw!r}")
+        if (len(parts) not in (2, 3) or parts[1] not in ("claude", "opencode")
+                or (len(parts) == 3 and parts[2] != "sob-demanda")):
+            errors.append(f"skills.txt:{n}: esperado '<skill> <claude|opencode> [sob-demanda]', veio {raw!r}")
             continue
         if parts[0] in entries:
             errors.append(f"skills.txt:{n}: {parts[0]} listada duas vezes")
-        entries[parts[0]] = parts[1]
+        entries[parts[0]] = (parts[1], len(parts) == 3)
     return entries
 
 
-def check_skill(folder):
+def check_skill(folder, on_demand=False):
     skill_md = folder / "SKILL.md"
     if not skill_md.is_file():
         errors.append(f"{folder.name}: falta SKILL.md")
@@ -79,6 +81,11 @@ def check_skill(folder):
         errors.append(f"{folder.name}: description com {len(desc)} caracteres (max 1024)")
     elif not re.search(r"\b(use when|use quando|use it|use this|apply when)\b", desc, re.I):
         warnings.append(f"{folder.name}: description nao diz quando usar ('Use when ...')")
+    flag = fm.get("disable-model-invocation", "").lower() == "true"
+    if on_demand and not flag:
+        errors.append(f"{folder.name}: sob-demanda no skills.txt exige disable-model-invocation: true")
+    if flag and not on_demand:
+        errors.append(f"{folder.name}: disable-model-invocation: true exige sob-demanda no skills.txt")
     lines = text.count("\n")
     if lines > 500:
         warnings.append(f"{folder.name}: SKILL.md com {lines} linhas; mova detalhes para arquivos de referencia")
@@ -94,8 +101,33 @@ def check_skill(folder):
                 errors.append(f"{md.relative_to(ROOT)}: link quebrado -> {target}")
 
 
+def check_commands():
+    cdir = ROOT / "commands" / "opencode"
+    if not cdir.is_dir():
+        return
+    for cmd in sorted(cdir.glob("*.md")):
+        fm = frontmatter(cmd.read_text(encoding="utf-8"))
+        if not fm or not fm.get("description"):
+            errors.append(f"commands/opencode/{cmd.name}: falta description no frontmatter")
+
+
+def check_renamed(entries):
+    path = ROOT / "renomeadas.txt"
+    if not path.is_file():
+        return
+    for n, raw in enumerate(path.read_text().splitlines(), 1):
+        parts = raw.split("#", 1)[0].split()
+        if not parts:
+            continue
+        if len(parts) != 2:
+            errors.append(f"renomeadas.txt:{n}: esperado '<antigo> <novo>', veio {raw!r}")
+        elif parts[0] in entries:
+            errors.append(f"renomeadas.txt:{n}: '{parts[0]}' foi renomeada, mas ainda esta no skills.txt")
+
+
 def main():
     entries = manifest()
+    check_renamed(entries)
     folders = {p.name: p for p in SKILLS.iterdir() if p.is_dir()}
     for name in entries:
         if name not in folders:
@@ -103,7 +135,8 @@ def main():
     for name, folder in sorted(folders.items()):
         if name not in entries:
             errors.append(f"skills/{name}/ nao esta no skills.txt")
-        check_skill(folder)
+        check_skill(folder, entries.get(name, (None, False))[1])
+    check_commands()
 
     for w in warnings:
         print(f"aviso  {w}")

@@ -6,6 +6,11 @@ default:
 check:
     @python3 scripts/check.py
 
+# Roda os testes do tooling
+test:
+    @python3 -m unittest discover -s tests -p 'test_*.py'
+    @bash tests/test_install.sh
+
 # Liga as skills do skills.txt no Claude Code e no opencode (valida antes)
 install: check
     @bash scripts/install.sh

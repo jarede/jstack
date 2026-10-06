@@ -8,7 +8,7 @@ set -euo pipefail
 DRY=0
 [ "${1:-}" = "--dry-run" ] && DRY=1
 
-for dir in "$CLAUDE_DIR" "$OPENCODE_DIR"; do
+for dir in "$CLAUDE_DIR" "$OPENCODE_DIR" "$OPENCODE_COMMANDS_DIR"; do
   [ -d "$dir" ] || continue
   for entry in "$dir"/*; do
     if is_our_link "$entry"; then
