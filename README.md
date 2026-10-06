@@ -34,19 +34,19 @@ desktop do Claude. Briefs e relatórios ficam em `.agentes/` no projeto.
 
 ## Instalação
 
-Requisitos: macOS ou Linux, `bash`, `python3`, `make`.
+Requisitos: macOS ou Linux, `bash`, `python3`, [`just`](https://github.com/casey/just) (`brew install just`).
 
 ```bash
 git clone https://github.com/jarede/jstack.git ~/projetos/jstack
 cd ~/projetos/jstack
-make dry-run    # mostra o que vai acontecer
-make install    # valida e cria os links
-make status     # confere
+just dry-run    # mostra o que vai acontecer
+just install    # valida e cria os links
+just status     # confere
 ```
 
-O `make install`:
+O `just install`:
 
-1. Roda `make check`. Se alguma skill estiver inválida, nada é instalado.
+1. Roda `just check`. Se alguma skill estiver inválida, nada é instalado.
 2. Para cada linha do [skills.txt](skills.txt), cria um link `<pasta do alvo>/<skill>` →
    `skills/<skill>`.
 3. Se já existir uma **pasta real** com esse nome, ela é movida para
@@ -73,10 +73,10 @@ Editar uma skill é editar o arquivo em `skills/`. Como as pastas instaladas sã
 na próxima sessão, sem reinstalar.
 
 ```bash
-make check                                    # valida tudo
-make status                                   # o que está instalado / o que está fora do jstack
-make import SKILL=nova-skill TARGET=claude    # traz uma skill criada direto em ~/.claude/skills
-make uninstall                                # remove só os links do jstack
+just check                                # valida tudo
+just status                               # o que está instalado / o que está fora do jstack
+just import nova-skill claude             # traz uma skill criada direto em ~/.claude/skills
+just uninstall                            # remove só os links do jstack
 ```
 
 ### Criar uma skill nova
@@ -85,13 +85,13 @@ make uninstall                                # remove só os links do jstack
    dígitos e hífens. A `description` diz **quando** usar ("Use when…") e tem no máximo 1024
    caracteres.
 2. Adicione `<nome> <claude|opencode>` ao `skills.txt`.
-3. `make install`, depois commit.
+3. `just install`, depois commit.
 
 No Claude Code, a skill `superpowers:writing-skills` guia o processo: teste a skill com um subagente
 antes e depois de escrever. As regras de convivência para agentes que editam este repositório estão
 em [AGENTS.md](AGENTS.md).
 
-### O que o `make check` valida
+### O que o `just check` valida
 
 - `skills.txt` e `skills/` batem: toda skill listada existe, toda pasta está listada, alvo válido.
 - Frontmatter com `name` e `description`, `name` igual à pasta e no formato aceito pelas duas
@@ -108,7 +108,7 @@ jstack/
 ├── skills.txt          # manifesto: <skill> <alvo>
 ├── skills/<nome>/      # uma pasta por skill (SKILL.md + references/ + scripts/)
 ├── scripts/            # install, uninstall, status, import, check
-├── Makefile
+├── justfile
 ├── AGENTS.md           # regras para agentes que mantêm este repositório
 └── NOTICE.md           # atribuição ao pstack (MIT)
 ```

@@ -8,14 +8,14 @@ editar o arquivo instalado é editar este repositório.
 
 1. Trabalhe em `skills/<nome>/`. Nunca crie uma skill direto em `~/.claude/skills` ou
    `~/.config/opencode/skills`. Se encontrar uma lá, traga para cá com
-   `make import SKILL=<nome> TARGET=<claude|opencode>`.
+   `just import <nome> <claude|opencode>`.
 2. No Claude Code, siga `superpowers:writing-skills`: rode um teste com subagente antes
    (comportamento sem a skill) e depois (com a skill).
 3. `name` igual ao nome da pasta, só `[a-z0-9-]`. `description` em terceira pessoa, começando por
    "Use when…", descrevendo **quando** usar e não o passo a passo, com no máximo 1024 caracteres.
 4. Skill nova → uma linha `<nome> <claude|opencode>` no `skills.txt`. Um alvo só por skill: o
    opencode 2 também lê `~/.claude/skills`.
-5. Rode `make check` e só faça commit com ele verde.
+5. Rode `just check` e só faça commit com ele verde.
 6. Conteúdo adaptado de terceiros → registre a origem e a licença em `NOTICE.md`.
 
 ## Não faça

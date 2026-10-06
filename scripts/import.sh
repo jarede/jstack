@@ -21,4 +21,4 @@ echo "copiada para skills/$skill e adicionada ao skills.txt"
 
 "$JSTACK_ROOT/scripts/install.sh"
 echo
-echo "Proximo passo: python3 scripts/check.py && git add -A && git commit -m \"add $skill\""
+echo "Proximo passo: just check && git add -A && git commit -m \"add $skill\""

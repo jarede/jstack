@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Show, per skill, whether it is installed where the manifest says, and list skills in the
-# Claude Code / opencode folders that jstack does not manage yet (candidates for `make import`).
+# Claude Code / opencode folders that jstack does not manage yet (candidates for `just import`).
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 
@@ -10,9 +10,9 @@ while read -r skill target; do
   if is_our_link "$dest" && [ "$(readlink "$dest")" = "$JSTACK_ROOT/skills/$skill" ]; then
     state="instalada"
   elif [ -e "$dest" ]; then
-    state="CONFLITO: existe uma pasta real em $dest (rode make install)"
+    state="CONFLITO: existe uma pasta real em $dest (rode just install)"
   else
-    state="NAO instalada (rode make install)"
+    state="NAO instalada (rode just install)"
   fi
   printf "  %-46s %-9s %s\n" "$skill" "$target" "$state"
 done < <(manifest_entries)
@@ -27,7 +27,7 @@ for pair in "claude:$CLAUDE_DIR" "opencode:$OPENCODE_DIR"; do
     [ -f "$entry/SKILL.md" ] || continue
     is_our_link "$entry" && continue
     [ -L "$entry" ] && continue
-    printf "  %-46s %-9s make import SKILL=%s TARGET=%s\n" "$(basename "$entry")" "$target" "$(basename "$entry")" "$target"
+    printf "  %-46s %-9s just import %s %s\n" "$(basename "$entry")" "$target" "$(basename "$entry")" "$target"
     found=1
   done
 done
