@@ -10,7 +10,7 @@ Flag every moment the user manually supplied context the agent could have fetche
 
 For each such moment:
 - Principle: a sentence on what the agent should have looked up automatically.
-- Evidence: the user's manual hand-off (e.g. a ticket ID, a chat thread URL, an observability trace ID, an error-tracker event link, "this is from PR #X", a design-tool URL).
+- Evidence: the user's manual hand-off (e.g. an issue ID, a chat thread URL, an observability trace ID, an error link, "this is from MR !X", a design-tool URL).
 - Routing: the skill that owns the workflow this came up in. Extend it to call the relevant MCP tool or sibling skill so the next agent fetches the context itself.
 
 Examples of the pattern:
@@ -18,7 +18,7 @@ Examples of the pattern:
 - User describes a flaky test the agent could have queried via an observability MCP. Routing: the debugging skill should mention the observability MCP.
 - User links a chat thread the agent could have fetched via a chat MCP. Routing: the relevant skill should mention the chat MCP.
 
-Read the active transcript at <ABSOLUTE_PATH> (or use the digest below if no path is given).
+Read the transcript at <TRANSCRIPT PATH OR SQLITE RECORDS> (or use the digest below if no transcript is available).
 
 Scan for:
 - Tool invocations and command flags the agent had to discover
@@ -32,8 +32,8 @@ Scan for:
 
 Findings must point to skills, tools, or MCPs invoked in this transcript. Speculative routings to skills the parent never opened do not count. To check whether a skill was used, scan the transcript for:
 
-- `Read` tool calls against any `SKILL.md` file (workspace `.cursor/skills/`, user-level `~/.cursor/skills/`, or plugin-installed paths under `~/.cursor/plugins/`)
-- `Task` prompts that name a skill path
+- `Read` tool calls against any `SKILL.md` file under `.claude/skills/`, `~/.claude/skills/`, or `~/.config/opencode/skills/`
+- Agent prompts that name a skill path
 - Tool calls (Shell, Grep, MCP, etc.) that match a skill's documented commands
 
 Two valid finding shapes:

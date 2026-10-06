@@ -2,7 +2,7 @@
 
 How to reason about confidence when evidence is historical, fragmentary, and sometimes contradictory, and how to communicate it without flattening it into false certainty.
 
-Code doesn't carry its own motivation. You can read what code does. You can't read *why it exists*. That lives in commits, PRs, tickets, docs, and conversations, all incomplete, biased, and sometimes missing entirely. Pretending otherwise produces confident-sounding guesses that mislead the user.
+Code doesn't carry its own motivation. You can read what code does. You can't read *why it exists*. That lives in commits, MRs, issues, docs, and conversations, all incomplete, biased, and sometimes missing entirely. Pretending otherwise produces confident-sounding guesses that mislead the user.
 
 ## Confidence Tiers
 
@@ -13,7 +13,7 @@ Every claim in the final output must sit in one of these tiers. The tier determi
 An explicit, textual citation that answers the question. Not "the code does X so the author must have wanted X." Something an author actually *wrote* that says why.
 
 Examples:
-- A PR description that says "this fixes the bug where users with >1000 items couldn't paginate"
+- An MR description that says "this fixes the bug where users with >1000 items couldn't paginate"
 - A ticket that says "we're adding this because customer Acme requested it in their security review"
 - A code comment that says "// clamp to 100 because the upstream API rejects larger values"
 - A design doc that says "we chose option A over option B because we need persistence across restarts"
@@ -26,9 +26,9 @@ Phrasing: confident, present tense. "This exists because X." Cite the source.
 Multiple pieces of indirect evidence converge. No single source states it explicitly, but the pattern across sources makes it likely.
 
 Examples:
-- The PR title says "improve performance," the ticket is labeled "perf," and the surrounding commits all touch the same hot path
+- The MR title says "improve performance," the issue is labeled "perf," and the surrounding commits all touch the same hot path
 - Multiple tests were added alongside the change, all exercising edge cases with very large inputs
-- The author's other PRs from the same week all mention the same incident in their descriptions
+- The author's other MRs from the same week all mention the same incident in their descriptions
 
 Phrasing: confident but clearly derived. "The evidence points strongly to X: [the specific pieces]." Cite multiple sources.
 
@@ -37,7 +37,7 @@ Phrasing: confident but clearly derived. "The evidence points strongly to X: [th
 A reasonable reading of the context, but nothing explicitly supports it. The reader should understand this is *your interpretation*, not a fact from the record.
 
 Examples:
-- The PR doesn't say why, but given the error was happening in production (per the incident channel timing) and the fix was rushed (merged the same day), it was likely a hotfix.
+- The MR doesn't say why, but given the error was happening in production (per the incident timing) and the fix was rushed (merged the same day), it was likely a hotfix.
 - The function name suggests retry logic. The retry count is 3. This matches the team's general convention of "3 retries" seen elsewhere in the codebase.
 
 Phrasing: hedged. "It appears", "likely", "suggests", "is consistent with", "one reading is". Make the inference chain explicit: "Given A and B, C seems likely because D."
@@ -56,7 +56,7 @@ Phrasing: explicitly speculative. "One possibility is X, but we have no direct e
 
 You looked and couldn't find out. A valid and important outcome. Document it.
 
-Phrasing: "We searched X, Y, and Z and found no evidence of why." Be specific about *what* you searched. "We couldn't find out" is less useful than "we searched the ticket tracker with keywords A and B, scanned the 6 PRs that touched this file since 2023, and grep'd the repo for string literals matching the threshold. None surfaced a rationale."
+Phrasing: "We searched X, Y, and Z and found no evidence of why." Be specific about *what* you searched. "We couldn't find out" is less useful than "we searched the issue tracker with keywords A and B, scanned the 6 MRs that touched this file since 2023, and grep'd the repo for string literals matching the threshold. None surfaced a rationale."
 
 ## Phrasing Guide
 
@@ -111,12 +111,12 @@ The user's guess is a prompt for investigation, not a conclusion to validate.
 
 ## When Evidence Contradicts
 
-If two sources disagree (the PR description says one thing, the ticket says another), surface both. Don't pick the one that fits a tidier narrative. A typical pattern:
+If two sources disagree (the MR description says one thing, the issue says another), surface both. Don't pick the one that fits a tidier narrative. A typical pattern:
 
-- **The ticket says** "we need this for customer X's compliance requirement"
-- **The PR says** "cleaning up tech debt in this area"
+- **The issue says** "we need this for customer X's compliance requirement"
+- **The MR says** "cleaning up tech debt in this area"
 
-Both may be true (the ticket motivated the work, the PR is the author's framing of it), or one may be wrong. Present both with their citations and let the user make the call.
+Both may be true (the issue motivated the work, the MR is the author's framing of it), or one may be wrong. Present both with their citations and let the user make the call.
 
 ## When Evidence Is Missing
 

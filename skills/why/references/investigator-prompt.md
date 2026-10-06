@@ -1,6 +1,6 @@
 # Investigator Prompt Template
 
-Build each investigator's prompt from this template. Fill in the placeholders. Append the single category playbook `sources/<source>.md` matching this investigator's evidence category (see `source-playbook.md` for the index). If the target code looks defensive (null checks, retry logic, timeout handling, rate limiting, feature flags, egress guards, OOM handlers), also append `sources/incident-postmortem.md` for the incident-flavored queries to run inside its own source.
+Build each investigator's prompt from this template. Fill in the placeholders. Add the category guidance from `source-playbook.md`. Use `sources/code-archaeology.md` for source control. If the target code looks defensive (null checks, retry logic, timeout handling, rate limiting, feature flags, egress guards, OOM handlers), also add `sources/incident-postmortem.md`.
 
 ---
 
@@ -32,9 +32,9 @@ Work like a careful, cautious, precise investigator. Don't produce a narrative. 
 **Initial commits touching this code (most recent first):**
 {COMMIT_LIST}
 
-**PR numbers extracted from commit messages:** {PR_NUMBERS}
+**MR iids extracted from commit messages:** {MR_IIDS}
 
-**Ticket IDs mentioned in commits or PR bodies (if any):** {TICKET_IDS}
+**Issue IDs mentioned in commits or MR descriptions (if any):** {ISSUE_IDS}
 
 ## Your Assigned Source
 
@@ -47,9 +47,9 @@ Work like a careful, cautious, precise investigator. Don't produce a narrative. 
 Gather **evidence**. Don't answer the question directly. The synthesizer weighs the evidence and forms conclusions. Follow this loop:
 
 1. **Cast a wide net first.** Start broad so you don't miss related context, then narrow in on specific items.
-2. **Read the whole thing.** Read any PR, ticket, doc, or thread fully, not just the title or summary. The key evidence is often buried in a comment, a subtask, or a follow-up.
-3. **Follow links within your assigned source.** If a PR references another PR or commit, pull it. If a ticket links a parent or sibling, pull it. If a doc links another doc, pull it. Stay inside your assigned source. When you spot a cross-source reference, do NOT chase it yourself. Record it under "Additional Leads" so the investigator assigned to that source can pick it up. The one-investigator-per-category design depends on this. Chasing cross-source links duplicates work and confuses scope.
-4. **Capture quotes verbatim** with their location (PR number, ticket ID, URL, commit hash, file:line). The synthesizer needs to cite this precisely.
+2. **Read the whole thing.** Read any MR, issue, doc, or thread fully, not just the title or summary. The key evidence is often buried in a comment, a subtask, or a follow-up.
+3. **Follow links within your assigned category.** If an MR references another MR or commit, pull it. If an issue links a parent or sibling, pull it. If a doc links another doc, pull it. Stay inside your category. When you spot a cross-category reference, do NOT chase it yourself. Record it under "Additional Leads" so the investigator assigned to that category can pick it up. The one-investigator-per-category design depends on this. Chasing cross-category links duplicates work and confuses scope.
+4. **Capture quotes verbatim** with their location (MR iid, issue ID, URL, commit hash, file:line). The synthesizer needs to cite this precisely.
 5. **Note absences.** If you searched for something and came up empty, that's also a finding. Record what you searched for and what you didn't find.
 6. **Watch for contradictions.** If two items in your source disagree, record both. Don't suppress the inconvenient one.
 
@@ -57,7 +57,7 @@ Don't synthesize or form a final opinion on "the why." Collect the raw material 
 
 ## Epistemic Discipline
 
-- **Don't confuse mechanics with motivation.** A commit changing `limit = 50` to `limit = 100` shows the change, not necessarily why. Look for the explanation in the commit message, PR description, linked ticket, or review comments.
+- **Don't confuse mechanics with motivation.** A commit changing `limit = 50` to `limit = 100` shows the change, not necessarily why. Look for the explanation in the commit message, MR description, linked issue, or discussion.
 - **Don't infer intent from code style.** "The author chose a functional approach" is an observation about code, not evidence of intent. Claim intent only when the author stated it.
 - **Preserve uncertainty.** If the evidence is ambiguous, say so. If one reading is more plausible but not certain, say that. Don't collapse ambiguity to look decisive.
 - **No silent substitutions.** If the question is about feature X and you only find evidence about feature Y, don't present Y's evidence as if it answers X.
@@ -67,7 +67,7 @@ Don't synthesize or form a final opinion on "the why." Collect the raw material 
 Return your findings in this structure. The synthesizer will read it directly.
 
 ### Source
-Which source you investigated (source control, issue / ticket tracker, long-form documents, real-time team chat, infrastructure observability, error / exception tracking, product analytics warehouse, code comments, etc.).
+Which evidence category you investigated (source control and MRs, issue tracker, long-form docs, real-time chat, observability and error tracking, or database).
 
 ### What I Searched
 The queries you ran, the items you opened, the places you looked. Be specific. This tells the synthesizer how thorough the investigation was and what might still be unsearched.
@@ -75,7 +75,7 @@ The queries you ran, the items you opened, the places you looked. Be specific. T
 ### Direct Evidence Found
 For each piece that explicitly addresses the question:
 - **What it says**: verbatim quote or accurate paraphrase
-- **Where it's from**: PR #123, ticket ID, doc URL, chat permalink, commit hash, or file:line
+- **Where it's from**: MR !123, issue ID, doc URL, chat permalink, commit hash, or file:line
 - **Author and date** (if available)
 - **Relevance**: one sentence on how it bears on the question
 
@@ -93,7 +93,7 @@ Two items that disagree with each other, with both citations.
 What you searched for and didn't find. Be specific: "Searched the issue tracker for [query] across [time range]. No matching issues." These absences are valuable data.
 
 ### Additional Leads
-Anything that suggests further investigation in a different source. For example, if a PR references a chat thread that wasn't in your source, note it so the real-time team chat investigator or a follow-up pass can pursue it.
+Anything that suggests further investigation in a different category. For example, if an MR references a chat thread, note it so the real-time chat investigator or a follow-up pass can pursue it.
 
 ## What You're Not Doing
 

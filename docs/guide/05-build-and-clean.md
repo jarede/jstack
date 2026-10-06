@@ -7,37 +7,37 @@ The build playbooks share one discipline. Say what you observed, let the playboo
 A bug prompt states the symptom and asks for a reproduction first:
 
 ```text
-/poteto-mode this command emits two records after a retry. repro first, then fix and verify.
+/jstack this command emits two records after a retry. repro first, then fix and verify.
 ```
 
 A feature prompt states the behavior and what must not change:
 
 ```text
-/poteto-mode add a --json flag. text output stays byte-identical. verify both forms.
+/jstack add a --json flag. text output stays byte-identical. verify both forms.
 ```
 
 A refactoring prompt pins behavior before structure moves:
 
 ```text
-/poteto-mode move parsing into one module, zero behavior change. record the current output first and prove it's unchanged after.
+/jstack move parsing into one module, zero behavior change. record the current output first and prove it's unchanged after.
 ```
 
 A perf prompt states the measurement, not a vibe:
 
 ```text
-/poteto-mode startup takes 1.8s on this fixture. trace it, fix the measured cause, show me before and after.
+/jstack startup takes 1.8s on this fixture. trace it, fix the measured cause, show me before and after.
 ```
 
-Each of these routes to its playbook ([Bug fix](../../skills/poteto-mode/playbooks/bug-fix.md), [Feature](../../skills/poteto-mode/playbooks/feature.md), [Refactoring](../../skills/poteto-mode/playbooks/refactoring.md), [Perf issue](../../skills/poteto-mode/playbooks/perf-issue.md)), and the playbook supplies the steps you didn't type: reproduce before fixing, name the data shape before implementing, pin behavior before restructuring, profile before optimizing.
+Each of these routes to its playbook ([Bug fix](../../skills/jstack/playbooks/bug-fix.md), [Feature](../../skills/jstack/playbooks/feature.md), [Refactoring](../../skills/jstack/playbooks/refactoring.md), [Perf issue](../../skills/jstack/playbooks/perf-issue.md)), and the playbook supplies the steps you didn't type: reproduce before fixing, name the data shape before implementing, pin behavior before restructuring, profile before optimizing.
 
-For sustained improvement of one number, there's the [Hillclimb playbook](../../skills/poteto-mode/playbooks/hillclimb.md). Give it the metric, a target, and a floor on attempts, and it loops one hypothesis at a time with a frozen measurement harness. It keeps wins and reverts everything else.
+For sustained improvement of one number, there's the [Hillclimb playbook](../../skills/jstack/playbooks/hillclimb.md). Give it the metric, a target, and a floor on attempts, and it loops one hypothesis at a time with a frozen measurement harness. It keeps wins and reverts everything else.
 
 Both perf playbooks run [`/benchmark-checklist`](../../skills/benchmark-checklist/SKILL.md) on their numbers. Perf issue vets its baseline and every number after it, and Hillclimb vets its harness before freezing it. [Verify and ship](./06-verify-and-ship.md#vet-a-measured-number-with-benchmark-checklist) shows when to type it yourself.
 
-Sometimes you want the cause before any fix. For a live symptom, such as a leak, an idle CPU spin, or a visual glitch, the [Runtime forensics playbook](../../skills/poteto-mode/playbooks/runtime-forensics.md) instruments the running process. For a profile you already captured, the [Trace forensics playbook](../../skills/poteto-mode/playbooks/trace-forensics.md) reads the artifact and maps the hot frame to source. Both return a diagnosis, not a fix:
+Sometimes you want the cause before any fix. For a live symptom, such as a leak, an idle CPU spin, or a visual glitch, the [Runtime forensics playbook](../../skills/jstack/playbooks/runtime-forensics.md) instruments the running process. For a profile you already captured, the [Trace forensics playbook](../../skills/jstack/playbooks/trace-forensics.md) reads the artifact and maps the hot frame to source. Both return a diagnosis, not a fix:
 
 ```text
-/poteto-mode here's a cpuprofile from the slow startup. tell me where the time goes and which source lines own it. no fix yet.
+/jstack here's a cpuprofile from the slow startup. tell me where the time goes and which source lines own it. no fix yet.
 ```
 
 ## Write the failing test first with `/tdd`
@@ -56,7 +56,7 @@ In context, that's enough. [`/tdd`](../../skills/tdd/SKILL.md) writes the smalle
 
 ## Clean before you commit
 
-The [Opening a PR playbook](../../skills/poteto-mode/playbooks/opening-a-pr.md) runs `/deslop` on the diff before each commit and applies [`/unslop`](../../skills/unslop/SKILL.md) to the PR description and commit bodies. `/deslop` ships in the `cursor-team-kit` plugin, not in pstack. If you don't have it, ask for the same outcome in plain words: remove narrating comments, unsupported guards, dead compatibility paths, and unrelated edits.
+The [Opening an MR playbook](../../skills/jstack/playbooks/opening-a-mr.md) runs the code cleanup pass from the jstack skill's [`references/harness.md`](../../skills/jstack/references/harness.md) before each commit. It also applies [`/unslop`](../../skills/unslop/SKILL.md) to the MR description and commit bodies. Claude Code uses `/simplify` for code cleanup. In opencode, use the cleanup steps listed in `harness.md`.
 
 For prose, `/unslop` takes a target and any extra rules you have:
 
@@ -74,10 +74,10 @@ Comments need their own pass, and not from the agent that wrote them. An author 
 /no-comments the diff
 ```
 
-[`/no-comments`](../../skills/no-comments/SKILL.md) spawns [Comment Sicko](../../agents/comment-sicko.md), a read-only reviewer with a short keep list: license headers, doc comments on a public API, links that explain what code can't, behavior forced by an external dependency you can't reshape. Everything else goes. A surprise in your own code gets no such pass. The comment comes back as a refactor flag, and `/no-comments` fixes the flags it accepts at the root cause. When a comment claims a constraint, "do not remove", the skill offers to encode the claim as a type, test, or lint. Either way, the comment comes out.
+[`/no-comments`](../../skills/no-comments/SKILL.md) spawns the read-only [comment-sicko agent](../../agents/claude/comment-sicko.md). It keeps license headers, public API doc comments, links that explain what code cannot, and behavior forced by an external dependency you cannot change. It removes other comments. A surprise in your own code gets no pass. The comment comes back as a refactor flag, and `/no-comments` fixes accepted flags at the root cause. When a comment claims a constraint, "do not remove", the skill offers to encode the claim as a type, test, or lint. The comment then comes out.
 
-The division of labor is worth keeping straight. `/deslop` cleans slop out of the code, `/unslop` cleans it out of prose, and `/no-comments` hands the comments to a reviewer who didn't write them.
+`/unslop` cleans slop out of prose. `/no-comments` gives comments to a reviewer who did not write them. The code cleanup pass removes dead code and unrelated edits.
 
-**Pitfall:** cleanup is not optional polish. A diff with narrating comments and defensive dead weight reads as unfinished to reviewers, and the extra code is where the next bug hides. If the diff feels padded, say `deslop it` before you commit, not after review calls it out.
+**Pitfall:** cleanup is not optional polish. A diff with narrating comments and defensive dead weight reads as unfinished to reviewers, and the extra code is where the next bug hides. Run the cleanup pass before you commit, not after review calls it out.
 
 Next: [Verify and ship](./06-verify-and-ship.md).

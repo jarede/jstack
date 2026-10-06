@@ -93,7 +93,7 @@ def check_agents() -> None:
 def text_files():
     for path in sorted(ROOT.rglob("*")):
         parts = path.relative_to(ROOT).parts
-        if parts[0] in {".git", ".claude", "build", "node_modules", "scripts"} or "node_modules" in parts:
+        if parts[0] in {".git", ".claude", ".jstack", "build", "node_modules", "scripts"} or "node_modules" in parts:
             continue
         if path.is_file() and path.suffix in TEXT_SUFFIXES and path.name != "bun.lock":
             yield path

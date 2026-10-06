@@ -1,15 +1,14 @@
 # Incident & Postmortem Context
 
-Not a separate source, a **cross-cutting angle**. Incidents often motivate defensive code ("we added this check after the X outage"), so if the target looks defensive (null checks, retry logic, timeout handling, rate limiting, feature flags), specifically hunt for incident history across every available source:
+Not a separate source, a **cross-cutting angle**. Incidents often motivate defensive code ("we added this check after the X outage"), so if the target looks defensive (null checks, retry logic, timeout handling, rate limiting, feature flags), search the available evidence categories in the jstack skill's `references/environment.md`:
 
-- **Notion**: search for postmortems mentioning the target file, feature, or error string
-- **Linear**: look for tickets labeled `incident`, `sev-*`, `postmortem-action-item`, `reliability`
-- **Slack**: search `#sev-*` and `#incident-*` channels around the dates the target code was added
-- **Git**: commits with messages like "fix for incident", "add defensive check", "revert" followed by "re-apply with..." are strong signals
-- **Datadog**: `search_datadog_incidents` for formal incident records with timelines, dashboards and monitors created as postmortem action items
-- **Sentry**: issues whose first-seen/last-seen window aligns with the target's PR ship date, stack traces through the target
-- **Databricks**: product-analytics events that classify an error condition (client-reported failures, user-visible retry events, etc.) often spike during an incident window. A drop in that event count after the target PR ships is circumstantial support that the target code resolved the user-visible symptom, even when Datadog/Sentry signal is noisy.
+- **Source control and MRs**: use `git` and `glab` to find commits, issues, MRs, discussions, and pipelines tied to an incident or defensive change.
+- **Issue tracker**: search incident and reliability issues when the environment table confirms an available tool.
+- **Long-form docs**: search repository docs, READMEs, and the named wiki or docs site when available.
+- **Real-time chat**: search incident discussion when an available tool exists.
+- **Observability and error tracking**: search incidents, logs, traces, and errors when an available tool exists.
+- **Database**: use an available database MCP only when stored data could explain the behavior.
 
-If you find an incident link, fetch the full postmortem. Postmortems typically have an "Action Items" section that ties directly to code changes. When multiple sources corroborate (a Datadog incident ID appears in a Linear ticket, which appears in a Notion postmortem, which appears in a Slack thread that links to the target PR, and the Databricks error-event count drops after the fix), the evidence is especially strong.
+If you find an incident link, read the full postmortem and follow its relevant action items. When multiple available sources corroborate an incident and link it to the target MR, the evidence is stronger. Keep unavailable categories listed as skipped sources in the final report.
 
 Worth spending time on when the code's defensive character makes an incident-driven origin plausible. Skip it for code that doesn't look defensive.

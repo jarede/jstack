@@ -2,6 +2,8 @@
 
 This directory is the maintained source for verifying the user-facing behavior of Notes. Read the index before driving the app, then use the matching feature file as the recipe.
 
+This example uses a project-specific `control-notes` driver. For another project, use the control layer available there, such as browser tools, a CLI, HTTP calls, or the QA host per the jstack skill's `references/environment.md`.
+
 ## Baseline preconditions
 
 - Launch Notes at `http://127.0.0.1:4173` with a disposable data directory.

@@ -7,17 +7,19 @@ A line marked **TODO** is a fact nobody has confirmed yet. Do not guess past it.
 ## Forge: GitLab
 
 - Host: `git.bistek.com.br` (self-hosted GitLab). REST API at `https://git.bistek.com.br/api/v4/`.
+- Edition: GitLab Free (Community Edition) 19.3.1, checked on 2026-10-06 with `glab api --hostname git.bistek.com.br version` (`"enterprise": false`). Paid-tier features are absent: no merge trains, no approval rules (the approvals endpoint omits `approvals_left`), no multiple reviewers.
 - CLI: `glab`, already authenticated for this host. Check with `glab auth status --hostname git.bistek.com.br`.
 - A pull request is a **merge request** (MR), addressed by its project-scoped `iid` (`!123`).
 - Reading MR state: `glab mr view <iid> --output json`, `glab mr view <iid> --comments`, and `glab api "projects/:id/merge_requests/<iid>"`. `detailed_merge_status` is GitLab's merge verdict (`mergeable`, `ci_still_running`, `ci_must_pass`, `conflict`, `need_rebase`, `discussions_not_resolved`, `not_approved`, `draft_status`, `checking`, and more).
 - Review threads are **discussions**: `glab api "projects/:id/merge_requests/<iid>/discussions"`. A blocking thread is a resolvable discussion with `resolved: false`. Reply with `glab api --method POST "projects/:id/merge_requests/<iid>/discussions/<discussion-id>/notes" --input <payload.json>`. Put the body in the JSON file as data, never in the command line.
-- Approvals: `glab api "projects/:id/merge_requests/<iid>/approvals"`.
+- Approvals: `glab api "projects/:id/merge_requests/<iid>/approvals"`. On GitLab Free it reports only who approved, never how many approvals are still required.
 - Pipelines: `glab ci status --branch <b>`, `glab ci get --branch <b> --output json`, `glab ci trace <job-id>`, and `glab api "projects/:id/merge_requests/<iid>/pipelines"`. A fresh pipeline is `glab ci run --branch <b>`. Retry one job with `glab ci retry <job-id>`.
 - Open: `glab mr create --source-branch <b> --target-branch <base> --title <t> --description-file <f>`. Retarget: `glab mr update <iid> --target-branch <base>`.
 - Merge. `glab mr merge` sets auto-merge by default, so always pass the flag explicitly. Merge now: `glab mr merge <iid> --squash --auto-merge=false --sha <verified-head> --yes`. Merge when the pipeline succeeds: `glab mr merge <iid> --squash --auto-merge --sha <verified-head> --yes`. `--sha` refuses the merge if the head moved after the verdict.
 - Stacked MRs: each MR targets the branch of the MR below it. GitLab retargets a child to the parent's target when the parent merges and its source branch is deleted. Verify the retarget, never assume it.
-- Merge trains: **TODO** whether any project uses them. When a project does, a queued MR shows in `glab api "projects/:id/merge_trains"`.
-- Automated reviewers: **TODO** which bots comment on MRs (GitLab Duo, SAST, secret detection, a custom bot). Their usernames go in the `--bot` list of `scripts/watch-mr/watch-mr` and in `review-bot-triage.md`.
+- Merge trains: not available on GitLab Free. `watch-mr --queued-stack` treats the train as absent, and Shipping lands one MR at a time.
+- Automated reviewers: **TODO** which bots comment on MRs (GitLab Duo, SAST, secret detection, a custom bot). Their usernames go in the `--bot` list of `scripts/watch-mr/watch-mr` (or `JSTACK_REVIEW_BOTS`) and in `review-bot-triage.md`.
+- `scripts/watch-mr/watch-mr` takes the host from `--host`, then `GITLAB_HOST`, then the origin remote. Pass `--host git.bistek.com.br` when running it outside a GitLab checkout.
 - `gh` and GitHub remain valid for repositories hosted on github.com. Pick the forge from `git remote get-url origin`.
 
 ## QA environment: Docker on `qa.bistek.com.br`

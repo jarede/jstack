@@ -26,26 +26,21 @@ Before spawning reviewers, state the intent explicitly. Derive this from:
 
 - The user's message
 - Commit messages
-- PR description if one exists
+- MR description if one exists
 - The code itself
 
 Write one clear paragraph. If you're unsure about the intent, ask the user before proceeding.
 
 ## Step 3, Spawn Reviewers
 
-Launch all reviewers in a single message using the Task tool. Use the `interrogate reviewers` line in `~/.cursor/rules/pstack-models.mdc`, one reviewer per entry, extending or shrinking the Reviewer A/B labels below to the configured entry count. If the rule or that line is missing, use the table defaults.
+Launch all reviewers in one message. Use the `interrogate reviewers` role line in the jstack skill's `references/models.md`, one reviewer per entry, extending or shrinking the Reviewer A/B labels below to the configured entry count. The line may mix `claude:` and `opencode:` entries. Spawn per the jstack skill's `references/harness.md` (Dispatch).
 
-| Subagent | Default model |
+| Reviewer | Role |
 |----------|---------------|
-| Reviewer A | `claude-opus-5-5-xhigh` |
-| Reviewer B | `grok-4.7-xhigh-fast` |
+| Reviewer A | configured `interrogate reviewers` entry |
+| Reviewer B | configured `interrogate reviewers` entry |
 
-For each reviewer:
-- `subagent_type`: `generalPurpose`
-- `model`: the configured `interrogate reviewers` entry, or the table default with no configured line. For an `auto` or `inherit-parent` entry, omit `model` so that reviewer runs on the parent model.
-- `readonly`: `true`
-
-If the Task tool rejects a configured entry, run that reviewer on the table default of its family and say so. Families go by prefix: `claude-*` and `grok-*`. With no family match, use Reviewer A's default. If it rejects a table default, check the valid slugs in the Task tool's error message, pick the closest equivalent (prefer the same family and reasoning tier), spawn with it, and open a separate PR to update the default table. Do not block the review on the slug issue. Never treat an alias entry as a rejected slug or apply either fallback to it.
+Each reviewer is a read-only explorer. Do not edit files. If a configured model cannot be dispatched, follow the failure handling in the jstack skill's `references/harness.md` (Dispatch). Do not substitute another model without operator direction.
 
 Read `references/reviewer-prompt.md` and fill in the template with:
 1. The stated intent
@@ -73,7 +68,7 @@ Read `references/lead-judgment.md` for the full framework.
 
 Categorize every finding using these buckets:
 
-- **Act on**. Real issues affecting correctness, security, or maintainability given the actual goals. These would block a real PR.
+- **Act on**. Real issues affecting correctness, security, or maintainability given the actual goals. These would block a real MR.
 - **Consider**. Legitimate points, but you're not sure they outweigh the cost of addressing them right now. Worth the user's attention.
 - **Noted**. Technically valid but not actionable. Context-dependent, premature optimization, or low-impact given the current stage.
 - **Dismissed**. Wrong, nitpicky, or missing context. Brief explanation why.
