@@ -18,9 +18,8 @@ Three roles, not two. The tier that people skip — the **reviewer** — is the 
 | **Implementer** (cheap agent, one per task) | Executes exactly one task and reports with literal command output | Decide scope; skip verification |
 
 Prerequisite: a written plan with numbered, independently verifiable tasks. Get one with
-`/jstack` (playbook feature or portagem, size arquitetural): see
-[../jstack/biblioteca/design.md](../jstack/biblioteca/design.md) and
-[../jstack/biblioteca/plano.md](../jstack/biblioteca/plano.md).
+`/jstack` per [../jstack/biblioteca/plano.md](../jstack/biblioteca/plano.md) (section When to write a plan):
+work delegated to orquestra always gets one.
 
 ## When to Use
 

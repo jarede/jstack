@@ -15,7 +15,7 @@ editar o arquivo instalado é editar este repositório.
    "Use when…", descrevendo **quando** usar e não o passo a passo, com no máximo 1024 caracteres.
 4. Skill nova → uma linha `<nome> <claude|opencode>` no `skills.txt`. Um alvo só por skill: o
    opencode 2 também lê `~/.claude/skills`.
-5. Skills de processo (`jstack`, `jstack-setup`) são sob demanda: `sob-demanda` no skills.txt e
+5. Skills de processo (`jstack`, `jstack-setup`, `por-que`, `corrigir`, `refletir`) são sob demanda: `sob-demanda` no skills.txt e
    `disable-model-invocation: true` no frontmatter.
 6. Rode `just check` e `just test` e só faça commit com os dois verdes.
 7. Conteúdo adaptado de terceiros → registre a origem e a licença em `NOTICE.md`.

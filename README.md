@@ -26,15 +26,20 @@ Nada roda sozinho. Quando quiser rigor, chame:
 
 O `/jstack` classifica o pedido num **playbook**, mede o tamanho (spike, delimitado ou
 arquitetural), copia os passos para a lista de tarefas (passo pulado fica como `pulado: <motivo>`)
-e executa com as regras fixas: evidência antes de afirmar, perguntar só o que não dá para
-descobrir, modelos definidos por você, nada irreversível sem a sua escolha.
+e executa sem perguntar, com as regras fixas: evidência antes de afirmar, modelos definidos por
+você, pausa só por ações irreversíveis. Plano escrito só para trabalho multi-fase ou delegado.
 
 | Playbook | Para quê |
 |---|---|
-| [portagem](skills/jstack/playbooks/portagem.md) | Portar ou migrar código mantendo o comportamento: golden outputs, paridade, revisão |
-| [bug](skills/jstack/playbooks/bug.md) | Reproduzir, achar a causa raiz, corrigir; ou só investigar |
-| [feature](skills/jstack/playbooks/feature.md) | Design aprovado → plano → execução → testes → revisão |
+| [investigacao](skills/jstack/playbooks/investigacao.md) | Perguntas só de leitura: como funciona, por que é assim, X ou Y |
+| [bug](skills/jstack/playbooks/bug.md) | Reproduzir, achar a causa raiz, corrigir |
+| [perf](skills/jstack/playbooks/perf.md) | Lentidão medida ou regressão de tempo ou recursos |
+| [feature](skills/jstack/playbooks/feature.md) | Comportamento novo: design → plano → execução → testes → revisão |
+| [portagem](skills/jstack/playbooks/portagem.md) | Portar, migrar ou refatorar mantendo o comportamento: golden outputs, paridade, revisão |
+| [prototipo](skills/jstack/playbooks/prototipo.md) | Decidir um fork de design ou comportamento observando, sem perguntar |
 | [longa](skills/jstack/playbooks/longa.md) | Execução de horas sem supervisão, com contrato, `decisoes.tsv` e auditoria no fim |
+| [retomar](skills/jstack/playbooks/retomar.md) | Retomar ou assumir um trabalho anterior de onde ele parou |
+| [pausar](skills/jstack/playbooks/pausar.md) | Parar num limite seguro para retomar depois |
 
 A [biblioteca](skills/jstack/biblioteca/) concentra as regras que os playbooks usam: design, plano,
 verificação, testes, debugging, finalização, revisão recebida, modelos, ferramentas (Claude Code ×
@@ -64,6 +69,10 @@ Briefs e relatórios ficam em `.agentes/` no projeto.
 | [arena](skills/arena/SKILL.md) | claude | N tentativas paralelas da mesma tarefa em worktrees, juiz cruzado, escolha da base e enxerto |
 | [triaging-desk-tickets](skills/triaging-desk-tickets/SKILL.md) | claude | Triagem só de leitura da fila do Desk: classificação, causa provável, duplicados, relatório local |
 | [custo-sessao](skills/custo-sessao/SKILL.md) | opencode | Custo e tokens da sessão atual do opencode (SQLite local) |
+| [como-funciona](skills/como-funciona/SKILL.md) | claude | Explicar como algo funciona: fluxo, conceitos, onde mora cada parte |
+| [por-que](skills/por-que/SKILL.md) | claude, sob demanda | Por que o código é assim: autoria, decisão, regressão, história |
+| [corrigir](skills/corrigir/SKILL.md) | claude, sob demanda | Transformar erros repetidos em estrutura que impede a repetição |
+| [refletir](skills/refletir/SKILL.md) | claude, sob demanda | Extrair aprendizados da sessão e virar edições de skills |
 | [english-tutor](skills/english-tutor/SKILL.md) | opencode | Corrige só erros de inglês que mudam o sentido |
 | [simplified-technical-english](skills/simplified-technical-english/SKILL.md) | opencode | Explicações técnicas em ASD-STE100 |
 
@@ -161,7 +170,7 @@ O check e os testes rodam no GitHub Actions a cada push.
 
 Fora do escopo da primeira versão do processo:
 
-- playbooks de refactor, performance e hillclimb;
+- refactors pelo playbook de portagem (sem playbook próprio);
 - skill de verificação do projeto (dirigir o app como um usuário);
 - automação de PR (acompanhar CI e revisões).
 

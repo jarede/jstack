@@ -19,11 +19,27 @@ Partes adaptadas:
 | `skills/jstack/biblioteca/verificacao.md` | `skills/principle-prove-it-works`, `principle-explain-the-number`, `blast-radius` |
 | `skills/jstack/biblioteca/testes.md` | `skills/tdd`, `principle-test-behavior-not-implementation` |
 | `skills/jstack/biblioteca/design.md` | `skills/architect` (+ `references/design-red-flags.md`), `playbooks/prototype.md` |
-| `skills/jstack/biblioteca/plano.md` | `principle-sequence-verifiable-units`, `playbooks/feature.md` |
+| `skills/jstack/biblioteca/plano.md` | `principle-sequence-verifiable-units`, `playbooks/feature.md`, `playbooks/multi-phase-plan.md` |
 | `skills/jstack/biblioteca/debugging.md` | `principle-fix-root-causes`, `principle-attack-the-premise` |
 | `skills/jstack/biblioteca/finalizacao.md` | `playbooks/opening-a-pr.md` |
 | `skills/jstack/biblioteca/revisao-recebida.md` | `skills/interrogate/references/lead-judgment.md` |
 | `skills/jstack/biblioteca/skills.md` | `playbooks/eval.md` |
+| `skills/corrigir/` | `skills/correct/`, `skills/principle-encode-lessons-in-structure/` |
+| `skills/como-funciona/` | `skills/how/` |
+| `skills/por-que/` | `skills/why/` |
+| `skills/refletir/` | `skills/reflect/` |
+| `skills/jstack/biblioteca/autonomia.md` | `skills/poteto-mode/SKILL.md` (Autonomy, Writing the reply), `skills/principle-never-block-on-the-human/`, `playbooks/autonomous-run.md` |
+| `skills/jstack/biblioteca/principios.md` | `README.md` (tabela de principios), `skills/principle-*/` |
+| `skills/jstack/biblioteca/medicao.md` | `skills/benchmark-checklist/`, `skills/principle-explain-the-number/` |
+| `skills/jstack/playbooks/perf.md` | `playbooks/perf-issue.md`, `playbooks/hillclimb.md` |
+| `skills/jstack/playbooks/investigacao.md` | `playbooks/investigation.md` |
+| `skills/jstack/playbooks/prototipo.md` | `playbooks/prototype.md`, `skills/principle-exhaust-the-design-space/` |
+| `skills/jstack/playbooks/retomar.md` | `playbooks/session-pickup.md` |
+| `skills/jstack/playbooks/pausar.md` | `playbooks/pause-safely.md` |
+| `skills/jstack/playbooks/feature.md` | `playbooks/feature.md` |
+| `skills/jstack/playbooks/bug.md` | `playbooks/bug-fix.md` |
+| `skills/jstack/playbooks/portagem.md` | `playbooks/refactoring.md` |
+| `skills/jstack/biblioteca/ferramentas.md` | `skills/poteto-mode/SKILL.md` |
 
 As adaptações trocam o mecanismo do Cursor (Task tool com `model`, workers na nuvem, regras `.mdc`)
 pelo deste setup: subagentes do Claude Code + `opencode2 run` em painéis do herdr ou abas do app
