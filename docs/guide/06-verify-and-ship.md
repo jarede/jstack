@@ -99,7 +99,7 @@ Apps change and feature maps rot. Run this at least once a day, ideally from a s
 /jstack open the MR. small ordered commits, evidence in the description.
 ```
 
-The [Opening an MR playbook](../../skills/jstack/playbooks/opening-a-mr.md) works from a worktree, rebases the work into small ordered commits, cleans the diff, unslops the prose, and returns the MR link. For a `git.bistek.com.br` remote, use GitLab MRs and pipelines through `glab`. The jstack skill's [`references/environment.md`](../../skills/jstack/references/environment.md) lists the commands.
+The [Opening an MR playbook](../../skills/jstack/playbooks/opening-a-mr.md) works from a worktree, rebases the work into small ordered commits, cleans the diff, unslops the prose, and returns the MR link. Five narrow MRs beat one fat one, and stacked follow-ups beat a growing branch. For a `git.bistek.com.br` remote, use GitLab MRs and pipelines through `glab`. The jstack skill's [`references/environment.md`](../../skills/jstack/references/environment.md) lists the commands.
 
 The QA host runs Docker at `qa.bistek.com.br`. Read the QA section of `environment.md` before you rely on it. The SSH user, remote Docker access, deploy procedure, log access, and registry are TODOs. Do not guess those steps. Use the project's README for a known deploy path, then drive the real surface.
 

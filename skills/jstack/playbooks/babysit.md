@@ -2,7 +2,7 @@
 
 **You own the merge frontier. Declare a mode, clear one MR at a time, and stop where the operator's call begins.** A request to land or ship is `playbooks/shipping.md`, which begins where this playbook ends.
 
-Babysitting starts when the operator asks, normally after a phase or whole stack is built. Finish the stack, get it green here, then land it through Shipping.
+Babysitting starts when the operator asks, normally after a phase or whole stack is built, not when an MR opens. Finish the stack, get it green here, then land it through Shipping.
 
 1. **Declare the mode and resolve the forge before any poll.** `drive` runs the loop to merge-ready, for "babysit this", "get it green", and "merge-ready". `background` triages without blocking while a plan still executes. `threads-only` answers review discussions and touches nothing else, for "address the review bot comments". `check` is one status pass and a report, for "check on X" and "is it green". Undeclared defaults to `drive`. Small or docs-only MRs get `check`, not `drive`. Resolve the forge from `git remote get-url origin`. For GitLab on `git.bistek.com.br`, use `glab` as described in `../references/environment.md`. For a `github.com` remote, use `gh`.
 2. **Work the merge frontier and nothing above it.** The lowest unmerged MR is the only one that matters until it merges. Upstack discussions get read and batched, never fixed at the cost of restarting the frontier's checks. If you catch yourself upstack while the frontier is red, stop and go back down.

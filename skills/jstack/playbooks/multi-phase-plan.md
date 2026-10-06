@@ -149,7 +149,7 @@ Each live lane runs in its own worktree-isolated subagent at the MR head. Drive 
 
 ## Appendix D. Links and reading list
 
-<Docs to read before editing. Read the **how**, **interrogate**, and **show-me-your-work** skills. For Claude Code, read `~/.claude/skills/<id>/SKILL.md`.>
+<Docs to read before editing. Which MRs get the **how** and **interrogate** skills. The trail per the **show-me-your-work** skill. For Claude Code, read `~/.claude/skills/<id>/SKILL.md`.>
 ````
 
 **Reply:** the plan path, the MR IIDs with their dependencies and the review-gated set, what the prototypes proved and what stays unproven, and the check script's output.

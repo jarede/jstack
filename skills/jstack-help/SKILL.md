@@ -6,11 +6,11 @@ disable-model-invocation: true
 
 # jstack help
 
-Answer the user's question about jstack, give them a prompt they can send, and link the source file. For a help question, do not start the work. The user asked how, so let them send the prompt.
+Answer the user's question about jstack, hand them a prompt they can send, and link the file the answer came from. For a help question, do not start the work. The user asked how, and a jstack run spends real tokens, so let them send the prompt.
 
 A message that asks for work, such as "use jstack to fix this bug", is not a help question. Read [`jstack`](../jstack/SKILL.md) and do the work under it.
 
-This file maps questions to the skills and guide pages that hold the answers. Those files own the details. Read the file you route to before you quote it, and trust it when it disagrees with this map. Give the user the source file at `https://github.com/jarede/jstack/blob/main/` followed by its path.
+This file maps questions to the skills and guide pages that hold the answers. Those files own the details. Read the file you route to before you quote it, and trust it when it disagrees with this map. The links here point into the installed skills, which the user may not be able to open, so give the user the file's public copy. Use `https://github.com/jarede/jstack/blob/main/` followed by its path.
 
 ## Find out what they need
 
@@ -27,7 +27,10 @@ Check the state that changes the answer, and mention it only when it does:
 - No `~/.config/jstack/models.conf` means `/setup-jstack` has not run for this user, so every role uses its default model.
 - No `verify-*` skill or other app harness in the project means agents have no scripted way to drive the app. Mention `/create-verification-skill` when the question is about proving a change works.
 
-Do not ask the user to choose models unless they ask about setup, cost, or model choices. `/setup-jstack` asks them to confirm or change role models.
+When `models.conf` is missing and it matters, ask whether the user wants to pick a model for each role now. It matters when the user is new, the question is about setup or cost, or the answer depends on which models run. Ask at most once per chat. If the need is also unclear, ask both questions together. Offer two choices:
+
+- Now: give them `/setup-jstack` to type, and answer their question too.
+- Later: answer their question, and add one line saying every role keeps its default model until they run `/setup-jstack`.
 
 ## Get set up
 
@@ -38,9 +41,9 @@ Do not ask the user to choose models unless they ask about setup, cost, or model
 
 Claude Code is the primary harness. You can use its desktop app or CLI. opencode differences matter only for tool dispatch and generated slash commands. There is no custom mode. Type `/jstack` at the start of each task.
 
-The [README](../../README.md) and [guide page 1](../../docs/guide/01-setup.md) have setup details. Offer to word their first prompt with them, per [`references/prompting.md`](references/prompting.md).
+Installing changes nothing until the user invokes a skill. The [README](../../README.md) and [guide page 1](../../docs/guide/01-setup.md) have the details. Offer to word their first prompt with them, per [`references/prompting.md`](references/prompting.md).
 
-If cost is the worry, say where the tokens go and how to spend fewer. jstack spends extra tokens on subagents and review panels. Rerun `/setup-jstack` and choose cheaper models or shorter panel lists. A role set to `inherit` runs on the parent chat's model. Each entry in a panel list runs one subagent. Save `/jstack` for work that needs rigor.
+If cost is the worry, say where the tokens go and how to spend fewer. jstack spends extra tokens on subagents and review panels. Rerun `/setup-jstack` and choose cheaper models or shorter panel lists. A role set to `inherit` runs on the parent chat's model, which saves tokens when the chat runs on a cheaper model. A shorter panel list runs fewer subagents, one for each entry. Save `/jstack` for work that needs rigor.
 
 ## Start a task with `/jstack`
 
@@ -56,41 +59,41 @@ The default answer is `/jstack`, which runs most other skills when its steps nee
 
 | The user wants to | Skill |
 |---|---|
-| Do a non-trivial task with rigor | [`/jstack`](../jstack/SKILL.md) |
+| Do any non-trivial task with rigor | [`/jstack`](../jstack/SKILL.md) |
 | Know how code works now, or where new code should live | [`/how`](../how/SKILL.md) |
 | Know why code is shaped this way, or where a number came from | [`/why`](../why/SKILL.md) |
-| Understand a change or subsystem in plain language | [`/teach`](../teach/SKILL.md) |
-| Catch up on recent work on a topic | [`/recall`](../recall/SKILL.md) |
+| Understand a change or subsystem, explained plainly | [`/teach`](../teach/SKILL.md) |
+| Catch up on their own recent work on a topic | [`/recall`](../recall/SKILL.md) |
 | Find what a small diff could break outside itself | [`/blast-radius`](../blast-radius/SKILL.md) |
-| Settle types and module shape before code crosses a function boundary | [`/architect`](../architect/SKILL.md) |
+| Settle types and module shape before code that crosses a function boundary | [`/architect`](../architect/SKILL.md) |
 | Get several attempts at one brief, merged into the best one | [`/arena`](../arena/SKILL.md) |
 | Run parallel checks over slices, or race workers | [`/swarm`](../swarm/SKILL.md) |
 | Have different models review a diff and try to break it | [`/interrogate`](../interrogate/SKILL.md) |
 | Fix a bug test-first when a cheap local test exists | [`/tdd`](../tdd/SKILL.md) |
 | Apply TypeScript rules to `.ts` or `.tsx` work | [`/typescript-best-practices`](../typescript-best-practices/SKILL.md) |
-| Strip comments before review | [`/no-comments`](../no-comments/SKILL.md) |
+| Strip comments before review, using a reviewer that did not write them | [`/no-comments`](../no-comments/SKILL.md) |
 | Clean AI tells out of prose | [`/unslop`](../unslop/SKILL.md) |
-| Write docs, an RFC, a README, an MR description, or a commit message | [`/technical-writing`](../technical-writing/SKILL.md) |
+| Write docs, an RFC, a README, an MR description, or a commit message to a standard | [`/technical-writing`](../technical-writing/SKILL.md) |
 | Hear the last reply again in plain words | [`/bro`](../bro/SKILL.md) |
-| Give agents a scripted way to drive an app and prove behavior | [`/create-verification-skill`](../create-verification-skill/SKILL.md) |
-| Bring a verification skill and its feature map back in line with an app | [`/maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
-| Vet a performance number before reporting it | [`/benchmark-checklist`](../benchmark-checklist/SKILL.md) |
-| Run a large or cross-cutting change, or one to review later | [`/figure-it-out`](../figure-it-out/SKILL.md) |
-| Keep a decision log during a run, then review it | [`/show-me-your-work`](../show-me-your-work/SKILL.md) |
+| Give agents a scripted way to drive the app and prove behavior | [`/create-verification-skill`](../create-verification-skill/SKILL.md) |
+| Bring a verification skill and its feature map back in line with the app | [`/maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
+| Vet a performance number before reporting or acting on it | [`/benchmark-checklist`](../benchmark-checklist/SKILL.md) |
+| Run a large or cross-cutting change, or one to review after stepping away | [`/figure-it-out`](../figure-it-out/SKILL.md) |
+| Keep a decision log during a run, and review it afterward | [`/show-me-your-work`](../show-me-your-work/SKILL.md) |
 | Pick a model for each role | [`/setup-jstack`](../setup-jstack/SKILL.md) |
-| Turn working habits into a personal skill | [`/automate-me`](../automate-me/SKILL.md) |
-| Turn lessons from a session into skill edits | [`/reflect`](../reflect/SKILL.md) |
-| Stop agents from repeating mistakes in a repository | [`/correct`](../correct/SKILL.md) |
-| Find your way around jstack | `/jstack-help` |
+| Turn their own working habits into a personal skill | [`/automate-me`](../automate-me/SKILL.md) |
+| Turn what a finished task taught into skill edits | [`/reflect`](../reflect/SKILL.md) |
+| Stop agents from repeating the same mistakes in this repo | [`/correct`](../correct/SKILL.md) |
+| Find their way around jstack | `/jstack-help` |
 
 If a skill directory next to this one is missing from the table, read its frontmatter and route by its description. The `principle-*` directories are covered under principles below.
 
 Close calls:
 
-- `/how` explains what code does. `/why` explains the reasons. `/teach` runs one or both and explains the result plainly.
+- `/how` explains what the code does. `/why` explains the reasons. `/teach` runs one or both and explains the result plainly.
 - `/arena` gives every worker the same brief and merges the best parts. `/swarm` splits work into slices or a race and returns one report.
-- `/architect` implements after it settles the design. Add "with checkpoint" to review the design before it writes code.
-- `/interrogate` reviews the diff. `/blast-radius` looks for breakage outside the diff and proves the fact that makes the change safe.
+- `/architect` implements right after it settles the design. Add "with checkpoint" to review the design before it writes code.
+- `/interrogate` reviews the diff. `/blast-radius` looks for breakage outside the diff and proves the one fact that makes the change safe.
 - `/recall` rebuilds context across recent chats. Resuming one specific chat or branch is the Session pickup playbook.
 - `/figure-it-out` designs one rigorous run. The Orchestrate playbook runs a program that spans days and many MRs. The Autonomous run playbook drives one task to a finish condition.
 
@@ -127,10 +130,10 @@ Principles are one-rule skills that `/jstack` reads and cites in its replies. Th
 | Runs cost more than expected | See the cost paragraph under Get set up. |
 | A skill did not load | Run `scripts/install.sh` again from the repository root. Then start a new Claude Code or opencode session. |
 | Parallel agents overwrote each other | Give each agent its own worktree. |
-| An overnight run moved but finished nothing | Give the run a check that can pass or fail. See [guide page 7](../../docs/guide/07-overnight.md). |
+| An overnight run moved but finished nothing | An overnight loop needs a check that can pass or fail, not a duration. See [guide page 7](../../docs/guide/07-overnight.md). |
 | The reply claims success from a green build | Ask for the real command, flow, stored value, or profile. That is the prove-it-works principle. |
 
-For a run that drifts, [`references/prompting.md`](references/prompting.md) has one-line steers. [Guide page 10](../../docs/guide/10-recipes-and-pitfalls.md) has more pitfalls and prompts worth copying.
+For a run that drifts, [`references/prompting.md`](references/prompting.md) has one-line steers. [Guide page 10](../../docs/guide/10-recipes-and-pitfalls.md) has more pitfalls and the recipes worth copying.
 
 ## Make jstack my own
 

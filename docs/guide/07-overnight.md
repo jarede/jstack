@@ -1,6 +1,6 @@
 # Run work while you sleep
 
-This is the payoff for everything before it. An agent you can trust to verify its own work is an agent you can leave alone with a hard task. What makes that safe is a checkable finish condition, an isolated worktree, and a decision log you audit in the morning.
+This is the payoff for everything before it. An agent you can trust to verify its own work is an agent you can leave alone with a hard task. What makes that safe isn't hope. It's a checkable finish condition, an isolated worktree, and a decision log you audit in the morning.
 
 ## Earn the trust before the loop
 
@@ -21,6 +21,7 @@ A good handoff has the goal, the finish condition, permissions, and an escape ha
 /jstack im going to bed. migrate every caller to the new parser in a fresh worktree off <base>.
 done means zero old callers, all parser fixtures pass, old api deleted.
 keep a decision log. don't ask me before committing.
+if you're truly stuck after a few hours, stop and write up why.
 ```
 
 In Claude Code, add `/loop until done` to the handoff. In opencode, run a background shell with a check that can pass or fail.
@@ -94,7 +95,7 @@ For several related workstreams, use one coordinator chat and a separate worktre
 
 A few habits help:
 
-- Give each feature, migration, performance task, or cleanup its own worktree.
+- Give each feature, migration, performance task, or cleanup its own worktree. Several can run side by side.
 - Keep related decisions and evidence in the coordinator chat.
 - Give each MR a verification swarm before it merges, and let Autopilot-stack or Autopilot-full carry the queue.
 - Ask the coordinator for a plan backed by data, and have it answer open questions with prototypes before it asks you.

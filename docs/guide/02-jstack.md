@@ -80,7 +80,7 @@ continue
 keep going until done
 ```
 
-Short follow-ups work because the playbook holds the structure. Start each new task with `/jstack`; no setting keeps it active between tasks. In opencode, the installer generates `/jstack` as a slash command.
+Short follow-ups work because the playbook holds the structure. Start each new task with `/jstack`; no setting keeps it active between tasks. In opencode, the installer generates `/jstack` as a slash command. Your words carry the intent, and the skill carries the rigor.
 
 ## Switch tasks with "new task"
 

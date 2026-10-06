@@ -26,7 +26,7 @@ Update mode changes the rest of the flow:
 
 ### 1. Mine their history
 
-Locate the active workspace's transcripts using the transcripts row of the jstack skill's `references/harness.md`. Use only the active workspace. Do not search other projects' transcripts. That crosses workspace boundaries and reads private chats from unrelated projects.
+Locate the active workspace's transcripts before fanning out, using the transcripts row of the jstack skill's `references/harness.md`. Use only the active workspace. Do not search other projects' transcripts. That crosses workspace boundaries and reads private chats from unrelated projects.
 
 Survey recent agent conversations within that scope for recurring patterns. Run multiple parallel subagents across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Each slice mining subagent reads transcripts from the workspace-scoped path the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
 
@@ -41,7 +41,7 @@ Cross-check across slices before elevating a signal. Patterns seen in 2+ slices 
 
 ### 2. Ask the user directly
 
-Mining misses intent that has not come up yet. Use the question tool from the jstack skill's `references/harness.md` for structured multiple-choice questions.
+Mining misses intent that has not come up yet. Use the question tool from the jstack skill's `references/harness.md` for structured multiple-choice questions, rather than asking the user to type from scratch.
 
 Shape: one or two questions with 4-6 options each. Allow multiple selections for category questions using the question tool's supported option. Start broad ("Which areas matter most?"), then follow up on selected areas with specific options. After the structured rounds, one free-form chat question catches anything the options missed.
 

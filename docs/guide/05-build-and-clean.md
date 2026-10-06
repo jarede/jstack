@@ -56,7 +56,7 @@ In context, that's enough. [`/tdd`](../../skills/tdd/SKILL.md) writes the smalle
 
 ## Clean before you commit
 
-The [Opening an MR playbook](../../skills/jstack/playbooks/opening-a-mr.md) runs the code cleanup pass from the jstack skill's [`references/harness.md`](../../skills/jstack/references/harness.md) before each commit. It also applies [`/unslop`](../../skills/unslop/SKILL.md) to the MR description and commit bodies. Claude Code uses `/simplify` for code cleanup. In opencode, use the cleanup steps listed in `harness.md`.
+The [Opening an MR playbook](../../skills/jstack/playbooks/opening-a-mr.md) runs the code cleanup pass from the jstack skill's [`references/harness.md`](../../skills/jstack/references/harness.md) before each commit. It also applies [`/unslop`](../../skills/unslop/SKILL.md) to the MR description and commit bodies. Claude Code uses `/simplify` for code cleanup. In opencode, use the cleanup steps listed in `harness.md`. The outcome is the same in plain words. Remove narrating comments, unsupported guards, dead compatibility paths, and unrelated edits.
 
 For prose, `/unslop` takes a target and any extra rules you have:
 
@@ -76,8 +76,8 @@ Comments need their own pass, and not from the agent that wrote them. An author 
 
 [`/no-comments`](../../skills/no-comments/SKILL.md) spawns the read-only [comment-sicko agent](../../agents/claude/comment-sicko.md). It keeps license headers, public API doc comments, links that explain what code cannot, and behavior forced by an external dependency you cannot change. It removes other comments. A surprise in your own code gets no pass. The comment comes back as a refactor flag, and `/no-comments` fixes accepted flags at the root cause. When a comment claims a constraint, "do not remove", the skill offers to encode the claim as a type, test, or lint. The comment then comes out.
 
-`/unslop` cleans slop out of prose. `/no-comments` gives comments to a reviewer who did not write them. The code cleanup pass removes dead code and unrelated edits.
+The division of labor is worth keeping straight. The code cleanup pass cleans slop out of the code, `/unslop` cleans it out of prose, and `/no-comments` hands the comments to a reviewer who did not write them.
 
-**Pitfall:** cleanup is not optional polish. A diff with narrating comments and defensive dead weight reads as unfinished to reviewers, and the extra code is where the next bug hides. Run the cleanup pass before you commit, not after review calls it out.
+**Pitfall:** cleanup is not optional polish. A diff with narrating comments and defensive dead weight reads as unfinished to reviewers, and the extra code is where the next bug hides. If the diff feels padded, run the cleanup pass before you commit, not after review calls it out.
 
 Next: [Verify and ship](./06-verify-and-ship.md).

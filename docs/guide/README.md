@@ -23,7 +23,7 @@ When you're stuck, or can't tell which skill fits, type [`/jstack-help`](../../s
 /jstack-help which skill should i use to review this branch?
 ```
 
-It answers, gives you a prompt to send, and links the source file. It does not start the work. You send the prompt when you are ready.
+It answers, hands you a prompt to send, and links the skill or guide page the answer came from. It doesn't start the work, because a jstack run spends real tokens, so you send the prompt when you're ready. It runs only when you type it.
 
 ## If you only remember one thing
 

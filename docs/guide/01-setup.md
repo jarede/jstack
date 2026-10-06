@@ -20,17 +20,17 @@ Run:
 /setup-jstack
 ```
 
-[`/setup-jstack`](../../skills/setup-jstack/SKILL.md) detects available models and asks which model to use for each role. It writes `~/.config/jstack/models.conf`, which the jstack skill reads.
+[`/setup-jstack`](../../skills/setup-jstack/SKILL.md) detects available models and asks which model to use for each role (code delegates, judgment, the review panels). Answer the questions. It writes `~/.config/jstack/models.conf`, which the jstack skill reads.
 
 The file stores one model choice per role. Read the jstack skill's [`references/models.md`](../../skills/jstack/references/models.md) for role defaults and value formats.
 
-You only need to change the roles you want. A role with no line in the file uses its default. Delete a role's line to restore its default. A panel role accepts a list, with one subagent for each entry.
+You only need to change the roles you want. A role with no line in the file uses its default. Delete a role's line to restore its default. A panel role accepts a list, with one subagent for each entry, so the list length sets the panel size.
 
-Set a role to `inherit` to run it on the parent chat's model. It is not a model name.
+Set a role to `inherit` to run it on the parent chat's model. It is not a model name. Setup also configures `swarm workers`, the default model for every `/swarm` worker unless a race names a model for each arm.
 
 ## Accept the verification offer, or don't
 
-At the end of setup, `/setup-jstack` looks for a way to prove app behavior in your project, either a `verify-*` skill or an existing harness. If it finds neither, it offers to generate one with [`/create-verification-skill`](../../skills/create-verification-skill/SKILL.md).
+At the end of setup, `/setup-jstack` looks for a way to prove app behavior in your project, either a `verify-*` skill or an existing harness. If it finds neither, it offers once to generate one with [`/create-verification-skill`](../../skills/create-verification-skill/SKILL.md).
 
 Say yes and it writes `.claude/skills/verify-<app>/`, a project-local skill that teaches agents to drive your app the way a user does. It tests the skill once before handing it over. Say no and setup moves on. You can run `/create-verification-skill` yourself any time. [Verify and ship](./06-verify-and-ship.md#create-a-project-verification-skill) covers it in depth.
 
@@ -40,9 +40,9 @@ After setup, start a new task with `/jstack`. Type `/jstack` at the start of eve
 
 ## Keep the cost in check
 
-jstack spends extra tokens on subagents and review panels. To spend fewer:
+jstack spends extra tokens on subagents and review panels. That's the price of the rigor. To spend fewer:
 
-- Rerun `/setup-jstack` and pick cheaper models for roles that do not need the strongest model.
+- Rerun `/setup-jstack` and pick cheaper models for roles that do not need the strongest model. A strong model in the main chat with cheaper, faster models in the code roles is a good split.
 - Set a role to `inherit` so it runs on the chat's own model.
 - Shorten a panel list. Each entry runs one subagent.
 - Save `/jstack` for work that needs rigor. A small, obvious edit does not.
@@ -55,7 +55,7 @@ Pick something real but small, and describe it the way you'd describe it to a co
 /jstack add a --json flag to this command. text output stays byte-identical. verify both.
 ```
 
-Watch the todo list. Its first items are the matched playbook's steps, the Feature playbook for this prompt. If `/jstack` skips a step, it stays in the list with `skip: <reason>`.
+Watch the todo list. Its first items are the matched playbook's steps copied in, the Feature playbook for this prompt. If `/jstack` skips a step, it stays in the list with `skip: <reason>`, so you can see what it chose not to do.
 
 You can type normal follow-ups after the task starts. Start each new task with `/jstack`. In opencode, the installer generates `/jstack` as a slash command.
 
