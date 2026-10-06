@@ -1,9 +1,9 @@
 ---
-name: interrogating-with-opencode
+name: interrogar
 description: Use when the user asks to "interrogate", stress-test, tear apart, or get an adversarial / multi-model / second-opinion review of a diff, branch or set of files - especially before a final review or merge of work delegated to opencode2 agents, or when a single reviewer's verdict is not enough.
 ---
 
-# Interrogating With opencode
+# Interrogar
 
 ## Overview
 
@@ -52,7 +52,7 @@ other write.
 
 **5. Launch, all at once.**
 - opencode2 reviewers: prepare `opencode.json` with global MCPs disabled (commands in
-  orchestrating-engineer-reviewer-implementer/mechanics.md, "Prepare the Environment"), then one
+  orquestra/mechanics.md, "Prepare the Environment"), then one
   per model:
   `opencode2 run --auto -m <model> "Leia e siga integralmente as instrucoes em <abs>/.agentes/interrogate/brief.md. Seu rotulo e <label>."`
   User wants to watch → one pane (herdr) or Terminal tab (desktop) each, per

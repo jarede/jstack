@@ -9,10 +9,10 @@ Partes adaptadas:
 
 | Arquivo no jstack | Origem no pstack |
 |---|---|
-| `skills/interrogating-with-opencode/` (SKILL.md e `references/`) | `skills/interrogate/` (SKILL.md, `references/reviewer-prompt.md`, `rubric.md`, `code-quality-review.md`, `lead-judgment.md`) |
-| `skills/running-an-arena-with-opencode/SKILL.md` | `skills/arena/SKILL.md` |
+| `skills/interrogar/` (SKILL.md e `references/`) | `skills/interrogate/` (SKILL.md, `references/reviewer-prompt.md`, `rubric.md`, `code-quality-review.md`, `lead-judgment.md`) |
+| `skills/arena/SKILL.md` | `skills/arena/SKILL.md` |
 | `skills/triaging-desk-tickets/SKILL.md` | `automations/benny/skills/triage-issue-reports/SKILL.md` |
-| `skills/orchestrating-engineer-reviewer-implementer/` (contrato do brief, piloto, log de decisões, `reviewing.md`) | `skills/poteto-mode/playbooks/orchestrate.md`, `docs/guide/07-overnight.md`, `skills/show-me-your-work`, `skills/blast-radius`, `skills/correct`, `skills/principle-test-behavior-not-implementation`, `skills/principle-build-the-lever`, `skills/figure-it-out` |
+| `skills/orquestra/` (contrato do brief, piloto, log de decisões, `reviewing.md`) | `skills/poteto-mode/playbooks/orchestrate.md`, `docs/guide/07-overnight.md`, `skills/show-me-your-work`, `skills/blast-radius`, `skills/correct`, `skills/principle-test-behavior-not-implementation`, `skills/principle-build-the-lever`, `skills/figure-it-out` |
 
 As adaptações trocam o mecanismo do Cursor (Task tool com `model`, workers na nuvem, regras `.mdc`)
 pelo deste setup: subagentes do Claude Code + `opencode2 run` em painéis do herdr ou abas do app

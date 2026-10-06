@@ -6,10 +6,10 @@
 #
 # Nao use os dois para a mesma skill: o opencode 2 le as duas pastas e a skill apareceria duplicada.
 
-orchestrating-engineer-reviewer-implementer  claude
+orquestra                                    claude
 orchestrating-herdr-agents                   claude
-interrogating-with-opencode                  claude
-running-an-arena-with-opencode               claude
+interrogar                                   claude
+arena                                        claude
 triaging-desk-tickets                        claude
 
 custo-sessao                                 opencode

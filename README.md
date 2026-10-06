@@ -23,10 +23,10 @@ desktop do Claude. Briefs e relatórios ficam em `.agentes/` no projeto.
 
 | Skill | Alvo | Para quê |
 |---|---|---|
-| [orchestrating-engineer-reviewer-implementer](skills/orchestrating-engineer-reviewer-implementer/SKILL.md) | claude | Executar um plano com revisor + implementadores opencode: contrato do brief, piloto, veredito por tarefa, log de decisões |
+| [orquestra](skills/orquestra/SKILL.md) | claude | Executar um plano com revisor + implementadores opencode: contrato do brief, piloto, veredito por tarefa, log de decisões |
 | [orchestrating-herdr-agents](skills/orchestrating-herdr-agents/SKILL.md) | claude | Lançar e esperar agentes CLI no herdr, ou em abas no app desktop |
-| [interrogating-with-opencode](skills/interrogating-with-opencode/SKILL.md) | claude | Revisão adversarial de um diff por modelos de famílias diferentes, com veredito filtrado pelo Claude |
-| [running-an-arena-with-opencode](skills/running-an-arena-with-opencode/SKILL.md) | claude | N tentativas paralelas da mesma tarefa em worktrees, juiz cruzado, escolha da base e enxerto |
+| [interrogar](skills/interrogar/SKILL.md) | claude | Revisão adversarial de um diff por modelos de famílias diferentes, com veredito filtrado pelo Claude |
+| [arena](skills/arena/SKILL.md) | claude | N tentativas paralelas da mesma tarefa em worktrees, juiz cruzado, escolha da base e enxerto |
 | [triaging-desk-tickets](skills/triaging-desk-tickets/SKILL.md) | claude | Triagem só de leitura da fila do Desk: classificação, causa provável, duplicados, relatório local |
 | [custo-sessao](skills/custo-sessao/SKILL.md) | opencode | Custo e tokens da sessão atual do opencode (SQLite local) |
 | [english-tutor](skills/english-tutor/SKILL.md) | opencode | Corrige só erros de inglês que mudam o sentido |

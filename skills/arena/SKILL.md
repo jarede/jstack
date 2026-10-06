@@ -1,9 +1,9 @@
 ---
-name: running-an-arena-with-opencode
+name: arena
 description: Use when the user says "arena", asks for several competing attempts at the same task, or when one attempt at a non-trivial piece of code or design would lock in the wrong shape - e.g. a task whose structure is open, where a cheap opencode2 implementer has failed or diverged, or where two approaches look equally plausible.
 ---
 
-# Running an Arena With opencode
+# Arena
 
 ## Overview
 
@@ -13,14 +13,14 @@ into it by hand. A cross-judge from another model family scores them independent
 is checked.
 
 Use it for tasks whose *shape* is open. A mechanical task with a known answer gets one implementer
-(orchestrating-engineer-reviewer-implementer), not an arena.
+(orquestra), not an arena.
 
 Adapted from `arena` in pstack by Lauren Tan (MIT).
 
 ## Phase A — Frame
 
 1. **The task** — one brief, `.agentes/arena/<slug>/tarefa.md`, using the brief contract from
-   orchestrating-engineer-reviewer-implementer: the brief is the contract. Each candidate gets a
+   orquestra: the brief is the contract. Each candidate gets a
    thin wrapper `tarefa-<n>.md`: "you are candidate n, your worktree is <path>, write your report
    to <abs>/.agentes/arena/<slug>/relatorio-<n>.md, then follow tarefa.md". Record the base commit:
    `git rev-parse HEAD > .agentes/arena/<slug>/base-sha`.
@@ -84,7 +84,7 @@ the one place in these skills where you write the code yourself.
 
 ## Phase F — Verify and clean up
 
-Verify the synthesized result like any delivery (orchestrating-engineer-reviewer-implementer,
+Verify the synthesized result like any delivery (orquestra,
 reviewing.md). A problem the arena did not catch means either the frame was wrong (re-run) or a
 candidate caught it and you missed the graft (back to E).
 

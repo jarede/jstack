@@ -1,9 +1,9 @@
 ---
-name: orchestrating-engineer-reviewer-implementer
+name: orquestra
 description: Use when an implementation plan already exists and the work will be executed by CLI coding agents (opencode2, codex, claude, gemini) instead of by you directly - especially when the plan has many tasks, when you are choosing which model does what, or when a delegated agent reports success and you have to decide whether to believe it.
 ---
 
-# Orchestrating Engineer, Reviewer and Implementer
+# Orquestra
 
 ## Overview
 
@@ -250,7 +250,7 @@ is exactly the review least likely to find the plan's own errors.
 last time, what this task specifically gets wrong.
 
 **Treating the final review as a formality.** Do it on the code, not on the reports. For a large
-or risky run, put the whole branch through interrogating-with-opencode first: reviewers from other
+or risky run, put the whole branch through interrogar first: reviewers from other
 model families catch what the reviewer tier and you share as blind spots. In the session
 this skill came from, the final review still found a screen that opened empty for every user — past
 a reviewer that had done its job well.

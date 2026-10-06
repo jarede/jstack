@@ -1,0 +1,4 @@
+# <nome antigo> <nome novo> — o install remove links antigos que apontem para este repositório.
+orchestrating-engineer-reviewer-implementer  orquestra
+running-an-arena-with-opencode               arena
+interrogating-with-opencode                  interrogar
