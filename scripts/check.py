@@ -20,6 +20,8 @@ ROOT = pathlib.Path(os.environ.get("JSTACK_ROOT") or pathlib.Path(__file__).reso
 SKILLS = ROOT / "skills"
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+# Relative paths written as code, e.g. `../biblioteca/plano.md` (code blocks are stripped first).
+TICK_RE = re.compile(r"`(\.{1,2}/[\w./-]+\.md)(?:#[\w-]+)?`")
 
 errors, warnings = [], []
 
@@ -93,6 +95,9 @@ def check_skill(folder, on_demand=False):
     for md in folder.rglob("*.md"):
         body = md.read_text(encoding="utf-8")
         body = re.sub(r"```.*?```", "", body, flags=re.S)  # ignore links inside code blocks
+        for target in TICK_RE.findall(body):
+            if not (md.parent / target).resolve().exists():
+                errors.append(f"{md.relative_to(ROOT)}: caminho quebrado -> {target}")
         for target in LINK_RE.findall(body):
             if re.match(r"^[a-z]+:", target) or target.startswith(("#", "/", "~", "<")):
                 continue

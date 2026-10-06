@@ -67,6 +67,18 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertIn("renomeadas.txt", r.stdout)
 
+    def test_backtick_path_to_missing_file_fails(self):
+        root = make_repo({"x": GOOD.format(n="x")}, "x claude\n")
+        (root / "skills" / "x" / "playbooks").mkdir()
+        (root / "skills" / "x" / "biblioteca").mkdir()
+        (root / "skills" / "x" / "biblioteca" / "real.md").write_text("# real\n")
+        (root / "skills" / "x" / "playbooks" / "p.md").write_text(
+            "Read `../biblioteca/real.md` and `../biblioteca/sumiu.md`.\n")
+        r = run_check(root)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("sumiu.md", r.stdout)
+        self.assertNotIn("real.md", r.stdout)
+
     def test_unknown_third_column_fails(self):
         root = make_repo({"x": GOOD.format(n="x")}, "x claude talvez\n")
         self.assertEqual(run_check(root).returncode, 1)
