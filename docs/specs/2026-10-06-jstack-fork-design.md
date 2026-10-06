@@ -27,7 +27,8 @@ nenhum dos dois. O pacote deve funcionar igual no **Claude Code** e no **opencod
 | Ambientes | Claude Code e opencode, com o mesmo conteúdo |
 | Testes | TDD pragmático: teste primeiro quando o caminho é barato e óbvio, ou quando o usuário pede; senão, verificação por evidência |
 | Arquitetura | Abordagem A: roteador + playbooks como arquivos + biblioteca compartilhada |
-| Renomeação | `orchestrating-engineer-reviewer-implementer` → `orquestra` |
+| Renomeações | `orchestrating-engineer-reviewer-implementer` → `orquestra`; `running-an-arena-with-opencode` → `arena`; `interrogating-with-opencode` → `interrogar` |
+| Modelos | Definidos uma vez por `/jstack-setup` (adaptado do `setup-pstack`); as skills leem a configuração em vez de perguntar a cada execução |
 
 ## 1. Roteador — `skills/jstack/SKILL.md`
 
@@ -56,7 +57,8 @@ chamar. O opencode v2 respeita `disable-model-invocation`, segundo a doc oficial
 - Evidência antes de afirmar.
 - "Pronto" só com a saída do comando de verificação colada.
 - Perguntar ao usuário só o que não dá para descobrir rodando algo.
-- Escolha de modelos (custo) sempre do usuário.
+- Modelos vêm de `~/.config/jstack/modelos.conf` (seção 3a). Se o papel não estiver configurado
+  ou o id não existir mais, pergunte. Nunca escolha um modelo por conta própria.
 - Nada é mesclado, publicado ou enviado sem o usuário escolher.
 
 As skills de execução existentes continuam com disparo automático. Só o processo é sob demanda.
@@ -71,10 +73,10 @@ Referências entre colchetes apontam para `biblioteca/`.
 2. Capturar golden outputs da origem antes de qualquer código. Escrever `check-NN.sh` de
    paridade, fora do alcance de escrita de implementadores.
 3. Plano com tarefas verificáveis [plano].
-4. Executar inline (poucas tarefas) ou com `orquestra` (pergunta os modelos).
+4. Executar inline (poucas tarefas) ou com `orquestra` (modelos do `modelos.conf`).
 5. Verificar cada tarefa: paridade + [verificacao] (escada, teste que não falha, guard que a origem
    não tem, rodar duas vezes).
-6. Mudança grande ou arriscada: `interrogating-with-opencode` com o filtro de portagem fiel.
+6. Mudança grande ou arriscada: `interrogar` com o filtro de portagem fiel.
 7. Finalizar [finalizacao].
 
 ### bug.md
@@ -91,9 +93,9 @@ Referências entre colchetes apontam para `biblioteca/`.
 1. Design [design]: delimitado → design curto no chat aprovado; arquitetural → spec escrita
    aprovada.
 2. Plano [plano] (só arquitetural).
-3. Executar: inline, `orquestra`, ou `running-an-arena-with-opencode` para tarefa de formato aberto.
+3. Executar: inline, `orquestra`, ou `arena` para tarefa de formato aberto.
 4. Testes [testes] + [verificacao].
-5. Revisão: `interrogating-with-opencode` se arquitetural; senão, uma revisão do diff.
+5. Revisão: `interrogar` se arquitetural; senão, uma revisão do diff.
 6. Finalizar [finalizacao].
 
 ### longa.md
@@ -137,18 +139,67 @@ Cada arquivo funde as duas fontes. Uma regra vive num lugar só.
 | Outro modelo | `opencode2 run -m` | `opencode2 run -m`, ou `task` com outro agente |
 | Ambiente | `$CLAUDE_CODE_ENTRYPOINT` | — |
 
+## 3a. Setup de modelos — `skills/jstack-setup/SKILL.md`
+
+Adaptado do `setup-pstack`. Define, uma vez, qual modelo faz cada papel. `disable-model-invocation:
+true`; é chamado por `/jstack-setup` (Claude Code) ou `/jstack-setup` / `@jstack-setup` (opencode).
+Rodar de novo atualiza.
+
+**Passos:**
+
+1. **Detectar os modelos disponíveis:**
+   - opencode: `opencode2 models`, um `provedor/modelo` por linha.
+   - Claude (subagentes): `opus`, `sonnet`, `haiku`, ou `inherit` (o mesmo modelo da sessão).
+   - Nunca gravar um id que não apareceu na detecção.
+2. **Carregar o estado atual:** se `~/.config/jstack/modelos.conf` existir, os valores dele são o
+   ponto de partida; senão, os padrões abaixo. Papel que não existe mais é descartado e mostrado.
+3. **Mostrar papel → modelo e confirmar:** aceitar como está ou trocar papéis específicos, com os
+   modelos detectados como opções. Ids que sumiram aparecem marcados como "precisa escolher".
+4. **Validar:** todo id opencode precisa estar no `opencode2 models`. Painéis (listas) devem ter
+   modelos de famílias diferentes; se não tiverem, avisar.
+5. **Gravar `~/.config/jstack/modelos.conf`** inteiro, de forma idempotente. Fica fora do
+   repositório, porque depende da conta e da máquina.
+
+**Formato e padrões:**
+
+```
+# jstack — modelo por papel. Gerado por /jstack-setup. Apague uma linha para voltar ao padrao.
+# Variante opcional: provedor/modelo#variante (repassada ao opencode2 run -m).
+orquestra revisor:        opencode-go/deepseek-v4.1-flash
+orquestra implementador:  opencode/muse-spark-1.3-contributor-free
+interrogar revisores:     opencode-go/deepseek-v4.1-flash, opencode-go/kimi-k3, opencode-go/glm-5.3
+interrogar claude:        inherit
+arena candidatos:         opencode-go/deepseek-v4.1-flash, opencode-go/kimi-k3
+arena juiz:               opencode-go/grok-4.7
+longa auditor:            opencode-go/gpt-6-luna
+```
+
+Os padrões são sugestões iniciais. A primeira execução do setup mostra todos e o usuário confirma
+ou troca antes de gravar.
+
+**Como as skills usam:**
+
+- `orquestra`, `interrogar`, `arena` e `longa` leem o papel correspondente do `modelos.conf`.
+- O pedido do usuário sobrepõe só aquela execução ("usa o kimi para revisar").
+- Antes de despachar, o id é conferido no `opencode2 models`. Se sumiu, perguntar e sugerir
+  `/jstack-setup`.
+- Sem `modelos.conf`: perguntar uma vez e sugerir `/jstack-setup`.
+
+Isso substitui a regra antiga "pergunte os modelos a cada execução". A decisão de custo continua do
+usuário: ela é tomada no setup.
+
 ## 4. Instalação, migração e repositório
 
-- `skills.txt` ganha `jstack claude`; o opencode lê `~/.claude/skills`.
-- Novo `commands/opencode/jstack.md`: comando com `$ARGUMENTS` que carrega a skill `jstack` e
-  segue o roteador. O `install.sh` linka `commands/opencode/*.md` em `~/.config/opencode/commands/`,
+- `skills.txt` ganha `jstack claude` e `jstack-setup claude`; o opencode lê `~/.claude/skills`.
+- Novos `commands/opencode/jstack.md` e `commands/opencode/jstack-setup.md`: comandos com
+  `$ARGUMENTS` que carregam a skill correspondente. O `install.sh` linka `commands/opencode/*.md` em `~/.config/opencode/commands/`,
   com backup. O `uninstall.sh` e o `status.sh` também tratam comandos.
 - `check.py` valida também:
   - links entre `playbooks/` e `biblioteca/`;
   - `disable-model-invocation: true` no `jstack`;
   - frontmatter dos comandos.
-- Renomeação para `orquestra`: pasta, `name`, `skills.txt`, referências em todas as skills, README,
-  NOTICE. O install remove o link antigo `orchestrating-engineer-reviewer-implementer`.
+- Renomeações (`orquestra`, `arena`, `interrogar`): pasta, `name`, `skills.txt`, referências em
+  todas as skills, README, NOTICE. O install remove os links com os nomes antigos.
 - `orquestra/reviewing.md` fica só com o que é específico de trabalho delegado. O geral aponta para
   `biblioteca/verificacao.md`.
 - AGENTS.md: `superpowers:writing-skills` → `skills/jstack/biblioteca/skills.md`.
@@ -178,7 +229,9 @@ Cada arquivo funde as duas fontes. Uma regra vive num lugar só.
    - opencode: `opencode2 api GET /api/skill` lista o `jstack`.
    - opencode: um `opencode2 run` com modelo barato (escolhido pelo usuário) roteia "investigue por
      que X" para `bug`.
-5. **Mecânico:** `just check` verde; `just install` idempotente num HOME temporário (CI); comando do
+5. **Setup:** num HOME temporário, `/jstack-setup` simulado por um subagente gera um
+   `modelos.conf` válido; um id inexistente é recusado; um papel apagado volta ao padrão.
+6. **Mecânico:** `just check` verde; `just install` idempotente num HOME temporário (CI); comando do
    opencode linkado.
 
 ## Fora do escopo (v1)
