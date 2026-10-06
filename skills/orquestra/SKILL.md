@@ -138,7 +138,7 @@ asks the engineer:
 3. **"Execute only Task N"**, including the commit that task calls for.
 4. **The safety fact** — the one sentence the task is correct because of, e.g. *"same rows, same
    order, same NULL/'' handling as the Oracle procedure"*. The reviewer must prove it by running
-   code (reviewing.md, Evidence Ladder).
+   code (`../jstack/biblioteca/verificacao.md`, Evidence ladder).
 5. **The traps of this task specifically.** This is where a brief earns its keep — reread the
    previous reports for what already went wrong. Include where grep stops: column-name case,
    DATE vs TIMESTAMP, Oracle `''` = NULL, other programs reading the same table. Generic advice
