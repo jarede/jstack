@@ -1,5 +1,5 @@
 ---
-description: Run a task through the jstack process (portagem, bug, feature, longa)
+description: Run a task through the jstack process (investigacao, bug, perf, feature, portagem, prototipo, longa, retomar, pausar)
 ---
 Run `cat ~/.claude/skills/jstack/SKILL.md` with your shell tool and follow what it prints exactly
 for this request. Read the playbook and library files it points to when it tells you to; their paths are
