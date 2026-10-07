@@ -24,18 +24,20 @@ The defaults split work by model strength, as pstack does. Code delegates go to 
 | `perf-issue` | Perf issue code delegates | `opencode:opencode-go/grok-4.7` |
 | `hillclimb` | Hillclimb code delegates | `opencode:opencode-go/grok-4.7` |
 | `judgment and prose` | prose, review judgment, verdicts | `claude:opus` |
-| `hardest tasks` | cross-cutting design, concurrency, subtle algorithms | `claude:opus` |
+| `hardest tasks` | cross-cutting design, concurrency, subtle algorithms | `opencode:opencode-go/grok-4.7` |
 | `how explorer` | **how** explorers | `opencode:opencode-go/grok-4.7` |
 | `how explainer` | **how** explainer | `claude:opus` |
 | `why investigators` | **why** source investigators | `opencode:opencode-go/grok-4.7` |
 | `why synthesizer` | **why** synthesizer | `claude:opus` |
 | `reflect tooling` | **reflect** tooling reviewer | `opencode:opencode-go/grok-4.7` |
 | `reflect judgment, divergent, synthesizer` | **reflect** judgment, divergent, and synthesizer | `claude:opus` |
-| `arena runners` | **arena** candidates (list) | `claude:opus, opencode:opencode-go/grok-4.7` |
+| `arena runners` | **arena** candidates (list) | `opencode:opencode-go/grok-4.7, opencode:opencode-go/deepseek-v4.1-flash` |
 | `arena cross-judge pool` | **arena** judge, one picked from a family that differs from the parent's | `claude:opus, opencode:opencode-go/grok-4.7` |
 | `swarm workers` | **swarm** workers | `opencode:opencode-go/grok-4.7` |
 | `architect runners` | **architect** runners (list) | `claude:opus, opencode:opencode-go/grok-4.7` |
 | `interrogate reviewers` | **interrogate** reviewers (list) | `claude:opus, opencode:opencode-go/grok-4.7` |
+
+Code lines (`feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks`, `arena runners`, `swarm workers`) take only `opencode:` values. Claude is reserved for design, review, judgment, and prose. A `claude:` or `inherit` value on a code line is a configuration error: stop and ask the operator instead of dispatching it.
 
 ## Looking up a role
 
