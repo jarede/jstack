@@ -7,6 +7,19 @@ jstack runs in Claude Code and in opencode v2. Skills name an action ("spawn a s
 - An `Agent` tool and `AskUserQuestion` are available, or `$CLAUDE_CODE_ENTRYPOINT` is set. You are in **Claude Code**. `claude-desktop` means the desktop app, which adds a built-in browser pane and Terminal-panel tabs.
 - A `subagent` tool and a `question` tool are available. You are in **opencode**.
 
+## Which terminal host launched me?
+
+The harness says which agent you are. The terminal host decides how an `opencode:` delegate is launched. Check it once, before the first dispatch, with `env | grep -E '^(ORCA_APP_VERSION|ORCA_TERMINAL_HANDLE|HERDR_PANE_ID|CLAUDE_CODE_ENTRYPOINT)='`, and take the first row that matches:
+
+| Host | Marker | Delegate launch |
+|---|---|---|
+| **Orca** | `ORCA_APP_VERSION` and `ORCA_TERMINAL_HANDLE` are set | a split pane next to your own terminal (Dispatch, **Orca**) |
+| **herdr** | `HERDR_PANE_ID` is set | a split pane next to your own pane (Dispatch, **herdr**) |
+| **Claude desktop** | `CLAUDE_CODE_ENTRYPOINT=claude-desktop` and neither marker above | background shell with the watchdog (Dispatch) |
+| plain terminal | none of the above | background shell with the watchdog (Dispatch) |
+
+Orca and herdr win over Claude desktop because they wrap the agent's own terminal. Under Orca, a background `opencode2 run` or `opencode run` started from the agent's shell hung with an empty log five times in a row, and the same brief started in an Orca pane ran at once. Inside a host, never launch a delegate as a background shell child. The pane keeps the run visible to the operator next to the coordinator, in the same tab.
+
 ## Tool map
 
 | Action | Claude Code | opencode |
@@ -59,6 +72,13 @@ Every role has a model in `~/.config/jstack/models.conf` (see `models.md`). The 
   The loop is the stall watchdog. `opencode2 run` talks to a shared local opencode server and has no timeout of its own. When that server is unhealthy, the request never becomes a session and the client waits forever with an empty log. A run whose log is still empty after 2 minutes never started. A run whose log stops growing for 10 minutes is stuck. Both exit 124, so the background notification arrives instead of silence. Never dispatch without the watchdog.
 
   Write the brief to the file first. It carries everything an `Agent` prompt would carry: the task, file pointers, the output contract, and whether the agent may edit files. Run the command with `run_in_background: true` (Claude Code) or `background: true` (opencode). Read the report when the notification arrives. A missing report means the run failed, so read the log tail before retrying. For a read-only role, say "do not edit files" in the brief. `opencode2 run` has no read-only switch.
+
+  Under a terminal host (see **Which terminal host launched me?**), launch the same command in a split pane of your own tab instead of the background shell. Use the `opencode` binary, not `opencode2`. The pane replaces the watchdog's job of making silence visible, so wait on the pane instead:
+
+  - **Orca.** `orca terminal split --terminal "$ORCA_TERMINAL_HANDLE" --direction horizontal --command "opencode run --auto -m <provider>/<model> '<prompt>'" --json` opens the pane and returns its `handle`. Check that it started with `orca terminal read --terminal <handle> --json` (the first `> build · <model>` line appears within seconds). Wait with `orca terminal wait --terminal <handle> --for exit --timeout-ms 1800000 --json` as a background command. Read `wait.satisfied`, then the report.
+  - **herdr.** `herdr pane split --pane "$HERDR_PANE_ID" --direction right --cwd <repo>` opens the pane. Take the new pane id from its output (or from `herdr pane list`), then `herdr pane run <pane-id> "opencode run --auto -m <provider>/<model> '<prompt>'" --no-focus`. Check the start with `herdr pane read <pane-id> --lines 20`. Wait with `herdr pane wait-output <pane-id> --regex '<the report path or the shell prompt>'` as a background command, then read the report.
+
+  An empty pane after 2 minutes is the same stall the watchdog catches. Report it, and count it toward the two retries in **Dispatch failures**.
 
 - **`inherit`**. Spawn on the parent's model. In Claude Code, omit `model`. In opencode, use the `general` or `explore` agent.
 
