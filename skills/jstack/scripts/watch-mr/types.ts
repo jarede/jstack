@@ -55,11 +55,6 @@ export type MergeStatusClass =
     }
   | { readonly kind: "unknown"; readonly raw: string };
 export type MrState = "opened" | "closed" | "merged" | "locked";
-/**
- * The head pipeline and the project it runs in. A merge request from a fork
- * runs its pipeline in the source project, so every job and pipeline read for
- * this MR has to name that project, not the MR's own.
- */
 export interface HeadPipeline {
   readonly id: number;
   readonly status: string;
@@ -421,11 +416,7 @@ export interface ForgeReader {
   ): Promise<readonly Check[]>;
   discussions(context: MrContext): Promise<readonly ReviewThread[]>;
   approvals(context: MrContext): Promise<ApprovalState>;
-  /** `projectId` is the head pipeline's project: a fork MR runs it elsewhere. */
-  pipelines(
-    context: MrContext,
-    projectId: number | null
-  ): Promise<readonly PipelineRecord[]>;
+  pipelines(context: MrContext): Promise<readonly PipelineRecord[]>;
   mergeTrain(project: Project): Promise<MergeTrainRead>;
 }
 export interface PollingOptions {

@@ -226,7 +226,9 @@ export async function main(
       nonEmpty(options.stackMrs.map((iid) => ({ ...seed, iid }))) ??
       (options.mode === "single"
         ? [seed]
-        : await discoverStack(active.reader, seed));
+        : await discoverStack(active.reader, seed, (detail) =>
+            active.stderr(`stack: excluded ${detail}\n`)
+          ));
   } catch (error) {
     if (!(error instanceof WatcherQueryError)) throw error;
     const verdict = statusQueryVerdict(

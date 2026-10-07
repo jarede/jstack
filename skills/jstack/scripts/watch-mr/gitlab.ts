@@ -265,7 +265,7 @@ function enumMember<const V extends readonly string[]>(
   return missing(path, value);
 }
 /**
- * The project a head pipeline's jobs and pipelines live in. A fork merge
+ * The project a head pipeline's jobs live in. A fork merge
  * request carries `head_pipeline.project_id` because its pipeline is created in
  * the source project; asking the MR's own project for those jobs 404s.
  */
@@ -822,16 +822,13 @@ export class GlabForgeReader implements T.ForgeReader {
       )
     );
   }
-  async pipelines(
-    context: T.MrContext,
-    projectId: number | null
-  ): Promise<readonly T.PipelineRecord[]> {
-    const project = pipelineProject(context, projectId);
+  async pipelines(context: T.MrContext): Promise<readonly T.PipelineRecord[]> {
+    // Only jobs are read from the pipeline's project; this route is keyed by the MR's.
     return parsePipelines(
       await this.runJson(
         glabApiArgv(
-          project,
-          `${projectEndpoint(project, `/merge_requests/${context.iid}/pipelines`)}?per_page=100`,
+          context,
+          `${projectEndpoint(context, `/merge_requests/${context.iid}/pipelines`)}?per_page=100`,
           true
         )
       )
@@ -931,15 +928,33 @@ export async function resolveContext(args: {
     return { ...project, iid: args.mr };
   return args.reader.currentMr(project, args.mr);
 }
+/** One line naming each open MR the walk left out, or null when it left none. */
+export function describeExclusions(
+  ordered: StackOrder,
+  context: T.Project,
+  defaultBranch: string
+): string | null {
+  const excluded = [
+    ...ordered.siblings.map((iid) => `!${iid} sibling`),
+    ...ordered.releases.map((iid) => `!${iid} release into ${defaultBranch}`),
+    ...ordered.cycles.map((iid) => `!${iid} branch cycle`),
+  ];
+  if (excluded.length === 0) return null;
+  return `${excluded.join(", ")} not in the stack in ${context.path} (one chain per target branch; releases are not stack roots)`;
+}
 export async function discoverStack(
   reader: T.ForgeReader,
-  context: T.MrContext
+  context: T.MrContext,
+  onExcluded?: (detail: string) => void
 ): Promise<T.NonEmpty<T.MrContext>> {
   const [open, defaultBranch] = await Promise.all([
     reader.openMergeRequests(context),
     reader.defaultBranch(context),
   ]);
-  return orderStack({ context, open, defaultBranch }).stack;
+  const ordered = orderStack({ context, open, defaultBranch });
+  const excluded = describeExclusions(ordered, context, defaultBranch);
+  if (excluded !== null) onExcluded?.(excluded);
+  return ordered.stack;
 }
 async function gitText(
   run: (argv: readonly [string, ...string[]]) => Promise<CommandResult>,
@@ -1041,17 +1056,8 @@ export async function discoverOpenStack(args: {
     preferredBranch: branch,
   });
   const byIid = new Map(open.map((mr) => [mr.iid, mr]));
-  // Excluded MRs are reported, never silently dropped and never folded in:
-  // a sibling is a second stack, a release is not a feature root.
-  const excluded = [
-    ...ordered.siblings.map((iid) => `!${iid} sibling`),
-    ...ordered.releases.map((iid) => `!${iid} release into ${defaultBranch}`),
-    ...ordered.cycles.map((iid) => `!${iid} branch cycle`),
-  ];
-  if (excluded.length > 0)
-    args.onExcluded?.(
-      `${excluded.join(", ")} not in the stack in ${project.path} (one chain per target branch; releases are not stack roots)`
-    );
+  const excluded = describeExclusions(ordered, project, defaultBranch);
+  if (excluded !== null) args.onExcluded?.(excluded);
   return ordered.stack.map((context) => {
     const mr = byIid.get(context.iid);
     if (mr === undefined)

@@ -136,10 +136,7 @@ export async function readSnapshot(args: {
         hadPreviousPassingCi: false,
       },
     };
-  const pipelines = await args.reader.pipelines(
-    args.context,
-    facts.headPipeline?.projectId ?? null
-  );
+  const pipelines = await args.reader.pipelines(args.context);
   const approvals =
     facts.state === "opened" ? await args.reader.approvals(args.context) : null;
   const hadPreviousPassingCi = previousPassingCi(facts, pipelines);

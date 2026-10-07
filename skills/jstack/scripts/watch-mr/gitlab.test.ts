@@ -245,8 +245,7 @@ describe("project path and stack order", () => {
       "projects/group%2Fsub%2Fproject",
     ]);
   });
-
-  });
+});
 
 describe("stack discovery", () => {
   const mr = (
@@ -564,7 +563,7 @@ describe("pipeline job reads", () => {
 
   // head_pipeline.project_id exists because a fork MR's pipeline is created in
   // the source project; asking the MR's own project for its jobs 404s.
-  it("reads jobs and pipelines from the head pipeline's project", async () => {
+  it("reads a fork merge request's jobs from the head pipeline's project", async () => {
     const endpoints: string[] = [];
     const reader = new GlabForgeReader({
       runner: {
@@ -585,14 +584,11 @@ describe("pipeline job reads", () => {
     expect(
       await reader.pipelineJobs(fork, { id: 900, status: "success", projectId: 314 })
     ).toMatchObject([{ kind: "passed" }]);
-    await reader.pipelines(fork, 314);
+    await reader.pipelines(fork);
     expect(endpoints).toEqual([
       "projects/314/pipelines/900/jobs?per_page=100&include_retried=false",
-      "projects/314/merge_requests/7/pipelines?per_page=100",
+      "projects/group%2Fsub%2Fproject/merge_requests/7/pipelines?per_page=100",
     ]);
-    expect(endpoints.every((endpoint) => !endpoint.includes("group%2Fsub"))).toBe(
-      true
-    );
   });
 
   it("parses head_pipeline.project_id and keeps the MR project without one", () => {
@@ -640,7 +636,7 @@ describe("pagination", () => {
       projectId: null,
     });
     await reader.discussions(context);
-    await reader.pipelines(context, null);
+    await reader.pipelines(context);
     await reader.mergeTrain(context);
     expect(calls).toHaveLength(5);
     expect(calls.map((argv) => argv.join(" "))).toEqual([
@@ -676,6 +672,45 @@ describe("watcher stack discovery", () => {
         (item) => Number(item.iid)
       )
     ).toEqual([10, 11, 12]);
+  });
+
+  it("reports the merge requests the stack left out instead of watching them silently", async () => {
+    const notes: string[] = [];
+    const reader = fakeReader({
+      openMergeRequests: [
+        { iid: parseMrIid(10), sourceBranch: "a", targetBranch: "main" },
+        { iid: parseMrIid(20), sourceBranch: "b", targetBranch: "a" },
+        { iid: parseMrIid(30), sourceBranch: "c", targetBranch: "a" },
+        { iid: parseMrIid(5), sourceBranch: "develop", targetBranch: "main" },
+      ],
+      defaultBranch: "main",
+    });
+    expect(
+      (
+        await discoverStack(
+          reader,
+          { ...context, iid: parseMrIid(20) },
+          (detail) => notes.push(detail)
+        )
+      ).map((item) => Number(item.iid))
+    ).toEqual([10, 20]);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("!30 sibling");
+    expect(notes[0]).toContain("!5 release into main");
+    expect(
+      await discoverStack(
+        fakeReader({
+          openMergeRequests: [
+            { iid: parseMrIid(10), sourceBranch: "a", targetBranch: "main" },
+            { iid: parseMrIid(20), sourceBranch: "b", targetBranch: "a" },
+          ],
+          defaultBranch: "main",
+        }),
+        { ...context, iid: parseMrIid(20) },
+        (detail) => notes.push(detail)
+      )
+    ).toHaveLength(2);
+    expect(notes).toHaveLength(1);
   });
 });
 

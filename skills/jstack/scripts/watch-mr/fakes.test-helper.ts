@@ -141,8 +141,8 @@ export function fakeReader(
       calls.push("approvals");
       return options.approvals ?? { approved: true, approvalsLeft: 0 };
     },
-    async pipelines(_requested, projectId) {
-      calls.push(projectId === null ? "pipelines" : `pipelines:${projectId}`);
+    async pipelines() {
+      calls.push("pipelines");
       return options.pipelines ?? [{ id: 1, sha: "head", status: "success" }];
     },
     async mergeTrain() {
