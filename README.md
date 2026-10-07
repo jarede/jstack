@@ -6,14 +6,16 @@ The original is MIT licensed. See [LICENSE](LICENSE). The skills keep poteto's r
 
 ## Install
 
-Requirements: macOS or Linux, `bash`, `python3`. For the full set also `opencode2` (multi-model roles), `glab` (GitLab), and `bun` (the MR watcher and the orchestration CLI).
+Requirements: macOS or Linux, `bash`, `python3`, `just`. For the full set also `opencode2` (multi-model roles), `glab` (GitLab), and `bun` (the MR watcher and the orchestration CLI).
 
 ```bash
 git clone https://github.com/jarede/jstack.git ~/projetos/jstack
 cd ~/projetos/jstack
-scripts/install.sh --dry-run
-scripts/install.sh
+just dry-run
+just install
 ```
+
+`just` alone lists every recipe.
 
 The install script links:
 
@@ -24,7 +26,7 @@ The install script links:
 | `agents/opencode/*.md` | `~/.config/opencode/agents/` | opencode |
 | generated `build/commands/<id>.md` | `~/.config/opencode/commands/` | opencode, so `/how`, `/jstack`, and friends work there too |
 
-It is idempotent. Every link that points into this repository is managed by it, and stale ones are removed. A real file in the way is moved to `~/.jstack-backup/<timestamp>/`. `scripts/install.sh --uninstall` removes only jstack's links. Start a new session after installing.
+It is idempotent. Every link that points into this repository is managed by it, and stale ones are removed. A real file in the way is moved to `~/.jstack-backup/<timestamp>/`. `just uninstall` removes only jstack's links. Start a new session after installing.
 
 ## Get started
 
@@ -82,9 +84,10 @@ Plus 24 `principle-*` skills, one rule each, indexed inline by `/jstack`.
 Editing a skill is editing its file here. Installed copies are links, so a change applies from the next session.
 
 ```bash
-python3 scripts/check.py          # frontmatter, links, and leftovers from the Cursor original
-scripts/install.sh                # after adding or removing a skill or agent
-(cd skills/jstack/scripts && bun test && bun run typecheck)
+just check      # frontmatter, links, and leftovers from the Cursor original
+just install    # after adding or removing a skill or agent
+just deps       # once, before the bun tests
+just ci         # check, then the orch and watch-mr tests and typecheck
 ```
 
 New skills follow the [Authoring a skill](skills/jstack/playbooks/authoring-a-skill.md) playbook.
