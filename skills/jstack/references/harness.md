@@ -78,6 +78,8 @@ Every role has a model in `~/.config/jstack/models.conf` (see `models.md`). The 
   - **Orca.** `orca terminal split --terminal "$ORCA_TERMINAL_HANDLE" --direction horizontal --command "opencode run --auto -m <provider>/<model> '<prompt>'" --json` opens the pane and returns its `handle`. Check that it started with `orca terminal read --terminal <handle> --json` (the first `> build · <model>` line appears within seconds). Wait with `orca terminal wait --terminal <handle> --for exit --timeout-ms 1800000 --json` as a background command. Read `wait.satisfied`, then the report.
   - **herdr.** `herdr pane split --pane "$HERDR_PANE_ID" --direction right --cwd <repo>` opens the pane. Take the new pane id from its output (or from `herdr pane list`), then `herdr pane run <pane-id> "opencode run --auto -m <provider>/<model> '<prompt>'" --no-focus`. Check the start with `herdr pane read <pane-id> --lines 20`. Wait with `herdr pane wait-output <pane-id> --regex '<the report path or the shell prompt>'` as a background command, then read the report.
 
+  Close the pane once the run exits and you have read the report: `orca terminal close --terminal <handle> --json` (Orca) or `herdr pane close <pane-id>` (herdr). A finished run left open clutters the operator's tab.
+
   An empty pane after 2 minutes is the same stall the watchdog catches. Report it, and count it toward the two retries in **Dispatch failures**.
 
 - **`inherit`**. Spawn on the parent's model. In Claude Code, omit `model`. In opencode, use the `general` or `explore` agent.
