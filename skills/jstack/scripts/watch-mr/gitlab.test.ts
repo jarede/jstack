@@ -453,6 +453,44 @@ describe("checks and trains", () => {
     );
   });
 
+  // A fabricated skipped check is neither failed nor pending, so a project that
+  // gates merges on a pipeline read ci-clean off a pipeline that never ran.
+  it("fails closed when a mergeable MR has no pipeline and the project requires one", async () => {
+    const reader = fakeReader({ pipelineGate: { kind: "required" } });
+    const facts = {
+      ...(await reader.mergeRequest(context)),
+      context,
+      headPipeline: null,
+    };
+    const rejection = resolveChecks(reader, facts);
+    await expect(rejection).rejects.toBeInstanceOf(ChecksUnavailable);
+    await expect(rejection).rejects.toThrow(
+      "group/sub/project requires a successful pipeline and merge request !42 has none"
+    );
+    expect(reader.calls).toEqual(["mergeRequest", "pipelineGate"]);
+  });
+
+  it("keeps the skipped check when the project does not require a pipeline", async () => {
+    const reader = fakeReader({ pipelineGate: { kind: "not-required" } });
+    const facts = {
+      ...(await reader.mergeRequest(context)),
+      context,
+      headPipeline: null,
+    };
+    const read = await resolveChecks(reader, facts);
+    expect(read.checks).toEqual([
+      {
+        kind: "skipped",
+        name: "pipeline",
+        reportedState: "none",
+        description: "",
+        link: "",
+        stage: "",
+      },
+    ]);
+    expect(reader.calls).toEqual(["mergeRequest", "pipelineGate"]);
+  });
+
   it("treats an endpoint-level 403 or 404 as an absent queue", async () => {
     expect(
       mergeTrainAbsent({ code: 1, stdout: "", stderr: "glab: HTTP 404" })
@@ -607,6 +645,47 @@ describe("pipeline job reads", () => {
         context
       ).headPipeline
     ).toEqual({ id: 7, status: "success", projectId: null });
+  });
+});
+
+describe("pipeline gate", () => {
+  it("reads only_allow_merge_if_pipeline_succeeds off the project endpoint", async () => {
+    const endpoints: string[] = [];
+    let project: Record<string, unknown> = {
+      only_allow_merge_if_pipeline_succeeds: true,
+    };
+    const reader = new GlabForgeReader({
+      runner: {
+        async run(argv) {
+          endpoints.push(argv[argv.length - 1] ?? "");
+          return { code: 0, stderr: "", stdout: JSON.stringify(project) };
+        },
+      },
+    });
+    expect(await reader.pipelineGate(context)).toEqual({ kind: "required" });
+    project = { only_allow_merge_if_pipeline_succeeds: false };
+    expect(await reader.pipelineGate(context)).toEqual({ kind: "not-required" });
+    expect(endpoints).toEqual([
+      "projects/group%2Fsub%2Fproject",
+      "projects/group%2Fsub%2Fproject",
+    ]);
+  });
+
+  // Absent is not exempt. This watcher fails closed everywhere else, and only an
+  // explicit false may let a missing pipeline pass as clean.
+  it("treats an absent only_allow_merge_if_pipeline_succeeds as required", async () => {
+    const reader = new GlabForgeReader({
+      runner: {
+        async run() {
+          return {
+            code: 0,
+            stderr: "",
+            stdout: JSON.stringify({ default_branch: "main" }),
+          };
+        },
+      },
+    });
+    expect(await reader.pipelineGate(context)).toEqual({ kind: "required" });
   });
 });
 

@@ -782,6 +782,19 @@ export class GlabForgeReader implements T.ForgeReader {
     );
     return string(object.default_branch, "project.default_branch");
   }
+  async pipelineGate(project: T.Project): Promise<T.PipelineGate> {
+    const object = record(
+      await this.runJson(
+        glabApiArgv(project, projectEndpoint(project, ""), false)
+      ),
+      "project"
+    );
+    // only_allow_merge_if_pipeline_succeeds is GitLab's "merges are allowed
+    // only if the pipeline succeeds" gate.
+    return object.only_allow_merge_if_pipeline_succeeds === false
+      ? { kind: "not-required" }
+      : { kind: "required" };
+  }
   async pipelineJobs(
     context: T.MrContext,
     pipeline: T.HeadPipeline
@@ -880,6 +893,13 @@ export async function resolveChecks(
         source: "pipeline-jobs",
         checks: [syntheticPending("pipeline", facts.detailedMergeStatus)],
       };
+    // Skipped is neither failed nor pending, so a gated project would read
+    // ci-clean off a pipeline that never ran. The gate treats an absent or
+    // non-boolean value as required; only an explicit not-required stands.
+    if ((await reader.pipelineGate(facts.context)).kind === "required")
+      throw new ChecksUnavailable(
+        `${facts.context.path} requires a successful pipeline and merge request !${facts.context.iid} has none`
+      );
     return {
       source: "pipeline-jobs",
       checks: [

@@ -124,6 +124,9 @@ export interface ApprovalState {
 export type MergeTrainRead =
   | { readonly kind: "absent" }
   | { readonly kind: "active"; readonly iids: readonly MrIid[] };
+export type PipelineGate =
+  | { readonly kind: "required" }
+  | { readonly kind: "not-required" };
 export type ForgeMergeRefusal = {
   readonly kind: "refused";
   readonly detailedMergeStatus: string;
@@ -410,6 +413,7 @@ export interface ForgeReader {
   mergeRequest(context: MrContext): Promise<MergeRequestFacts>;
   openMergeRequests(project: Project): Promise<readonly OpenMergeRequest[]>;
   defaultBranch(project: Project): Promise<string>;
+  pipelineGate(project: Project): Promise<PipelineGate>;
   pipelineJobs(
     context: MrContext,
     pipeline: HeadPipeline

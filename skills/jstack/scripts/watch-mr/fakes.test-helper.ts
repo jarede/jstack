@@ -11,6 +11,7 @@ import type {
   MrContext,
   OpenMergeRequest,
   PipelineRecord,
+  PipelineGate,
   Project,
   ReviewThread,
 } from "./types.ts";
@@ -26,6 +27,7 @@ export interface FakeReaderOptions {
   readonly origin?: Project | null;
   readonly current?: MrContext;
   readonly defaultBranch?: string;
+  readonly pipelineGate?: PipelineGate;
   readonly train?: MergeTrainRead;
   readonly bots?: readonly string[];
 }
@@ -124,6 +126,10 @@ export function fakeReader(
     async defaultBranch() {
       calls.push("defaultBranch");
       return options.defaultBranch ?? "main";
+    },
+    async pipelineGate() {
+      calls.push("pipelineGate");
+      return options.pipelineGate ?? { kind: "not-required" };
     },
     async pipelineJobs(_requested, pipeline) {
       calls.push(

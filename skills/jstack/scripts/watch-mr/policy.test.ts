@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { WatcherQueryError } from "./gitlab.ts";
+import { ChecksUnavailable, WatcherQueryError } from "./gitlab.ts";
 import {
   applyQueueSnapshot,
   assessForgeMerge,
@@ -162,6 +162,25 @@ describe("readiness truth table", () => {
       kind: "blocker",
       blocker: { kind: "failing-checks" },
     });
+  });
+
+  // The row this used to produce was ci-clean off a pipeline that never ran,
+  // so classifyMr called it ready.
+  it("never reports ci-clean for a mergeable MR with no pipeline on a gated project", async () => {
+    const reader = fakeReader({
+      facts: { headPipeline: null },
+      pipelineGate: { kind: "required" },
+    });
+    const rejection = readSnapshot({
+      reader,
+      context: context(1),
+      pendingHistory: "include",
+      allowDraft: false,
+    });
+    await expect(rejection).rejects.toBeInstanceOf(ChecksUnavailable);
+    await expect(rejection).rejects.toThrow(
+      "group/project requires a successful pipeline and merge request !1 has none"
+    );
   });
 });
 
