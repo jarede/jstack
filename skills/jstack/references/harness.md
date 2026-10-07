@@ -40,10 +40,23 @@ Every role has a model in `~/.config/jstack/models.conf` (see `models.md`). The 
 
   ```bash
   mkdir -p .jstack/runs
+  log=.jstack/runs/<name>.log
   opencode2 run --auto -m <provider>/<model> --title "jstack <role>" \
     "Read and follow the brief in <abs-path>/.jstack/runs/<name>.brief.md. Write your final report to <abs-path>/.jstack/runs/<name>.report.md." \
-    > .jstack/runs/<name>.log 2>&1
+    > "$log" 2>&1 &
+  pid=$! size=0 idle=0
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep 30
+    now=$(wc -c < "$log")
+    if [ "$now" -eq "$size" ]; then idle=$((idle + 30)); else idle=0 size=$now; fi
+    if { [ "$size" -eq 0 ] && [ "$idle" -ge 120 ]; } || [ "$idle" -ge 600 ]; then
+      kill "$pid"; echo "STALLED: log idle for ${idle}s" >> "$log"; exit 124
+    fi
+  done
+  wait "$pid"
   ```
+
+  The loop is the stall watchdog. `opencode2 run` talks to a shared local opencode server and has no timeout of its own. When that server is unhealthy, the request never becomes a session and the client waits forever with an empty log. A run whose log is still empty after 2 minutes never started. A run whose log stops growing for 10 minutes is stuck. Both exit 124, so the background notification arrives instead of silence. Never dispatch without the watchdog.
 
   Write the brief to the file first. It carries everything an `Agent` prompt would carry: the task, file pointers, the output contract, and whether the agent may edit files. Run the command with `run_in_background: true` (Claude Code) or `background: true` (opencode). Read the report when the notification arrives. A missing report means the run failed, so read the log tail before retrying. For a read-only role, say "do not edit files" in the brief. `opencode2 run` has no read-only switch.
 
@@ -57,6 +70,7 @@ A panel role (a list) spawns one agent per entry, all in one message. Mixed list
 
 - `name must be at most 64 characters`, or every request rejected. A globally enabled MCP server exposes a tool name that is too long for the provider. Write a project `opencode.json` that disables the global MCP servers for the run (`{"mcp":{"<server>":{"enabled":false}}}`), add it to `.git/info/exclude`, and retry. Never edit the operator's global opencode config.
 - An auth-looking error right after a model id. The id was renamed or removed. Check it with `opencode2 models | grep -x '<provider>/<model>'` and ask the operator to rerun `/setup-jstack`. Never substitute a similar model silently.
+- Exit 124 with `STALLED` at the log tail. The watchdog killed a run that never started or stopped moving. In `~/.local/share/opencode/log/opencode.log`, a healthy run shows server activity for its directory (git snapshots) within a second of its `cli starting` line. A stalled one shows nothing after it, often right after a server `InterruptError`. Re-dispatch the same brief once. It counts toward the two retries below.
 - Out of context, or a tool error. Re-dispatch with a smaller scope or the same brief on a different model in the same role. Two retries per task, then escalate.
 
 ## Waiting
