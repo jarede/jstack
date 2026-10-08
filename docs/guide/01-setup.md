@@ -20,7 +20,7 @@ Run:
 /setup-jstack
 ```
 
-[`/setup-jstack`](../../skills/setup-jstack/SKILL.md) detects available models and asks which model to use for each role (code delegates, judgment, the review panels). Answer the questions. It writes `~/.config/jstack/models.conf`, which the jstack skill reads.
+[`/setup-jstack`](../../skills/setup-jstack/SKILL.md) detects available models and asks which model to use for each role (code delegates, judgment, the review panels). Answer the questions. It also asks for an `opencode fallback` chain, the models jstack moves to when an opencode model's limit runs out (a free tier expired, a quota hit). It writes `~/.config/jstack/models.conf`, which the jstack skill reads.
 
 The file stores one model choice per role. Read the jstack skill's [`references/models.md`](../../skills/jstack/references/models.md) for role defaults and value formats.
 
