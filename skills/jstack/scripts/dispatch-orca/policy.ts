@@ -1,0 +1,404 @@
+import { dirname, join } from "node:path";
+import {
+  RECOVERY_POLL_MS,
+  WAIT_POLL_MS,
+  stateFileName,
+  type DispatchDependencies,
+  type DispatchFs,
+  type DispatchRecord,
+  type DispatchRequest,
+  type DispatchState,
+  type DispatchStatus,
+  type InFlightState,
+  type ListTerminalsResult,
+  type OrcaError,
+  type SplitResult,
+  type TerminalHandle,
+  type TerminalInfo,
+  type TerminalState,
+} from "./types.ts";
+
+/** Exit codes the coordinator dispatches on. Usage errors never reach a state. */
+export const EXIT_DONE = 0;
+export const EXIT_USAGE = 2;
+export const EXIT_DISPATCH_FAILED = 3;
+export const EXIT_AMBIGUOUS = 4;
+export const EXIT_PANE_GONE = 5;
+export const EXIT_STILL_RUNNING = 124;
+
+export function statusOf(state: TerminalState): DispatchStatus {
+  switch (state.kind) {
+    case "done":
+      return "done";
+    case "dispatch-failed":
+      return "dispatch-failed";
+    case "ambiguous":
+      return "ambiguous";
+    case "pane-gone":
+      return "pane-gone-no-report";
+    case "still-running":
+      return "still-running";
+    default: {
+      const undecided: never = state;
+      return undecided;
+    }
+  }
+}
+
+export function exitCodeOf(state: TerminalState): number {
+  switch (state.kind) {
+    case "done":
+      return EXIT_DONE;
+    case "dispatch-failed":
+      return EXIT_DISPATCH_FAILED;
+    case "ambiguous":
+      return EXIT_AMBIGUOUS;
+    case "pane-gone":
+      return EXIT_PANE_GONE;
+    case "still-running":
+      return EXIT_STILL_RUNNING;
+    default: {
+      const undecided: never = state;
+      return undecided;
+    }
+  }
+}
+
+/** The handle an operator can act on: the pane when there is one, else null. */
+export function handleOf(state: TerminalState): TerminalHandle | null {
+  return state.kind === "ambiguous" || state.kind === "dispatch-failed"
+    ? null
+    : state.handle;
+}
+
+export function statePathFor(request: DispatchRequest): string {
+  return join(dirname(request.report), stateFileName(request.name));
+}
+
+/** Step 1: the report is the only completion signal, and its size is the proof. */
+export function reportReady(fs: DispatchFs, report: string): boolean {
+  const size = fs.fileSize(report);
+  return size !== null && size > 0;
+}
+
+export function readStateFile(
+  fs: DispatchFs,
+  path: string
+): DispatchRecord | null {
+  const raw = fs.readTextFile(path);
+  if (raw === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const record = parsed as {
+    readonly handle?: unknown;
+    readonly startedAt?: unknown;
+  };
+  if (typeof record.handle !== "string" || record.handle === "") return null;
+  return {
+    handle: record.handle,
+    startedAt: typeof record.startedAt === "string" ? record.startedAt : "",
+  };
+}
+
+export function writeStateFile(
+  fs: DispatchFs,
+  path: string,
+  record: DispatchRecord
+): void {
+  fs.writeTextFile(path, `${JSON.stringify(record)}\n`);
+}
+
+/** Step 2: only a handle a fresh list still shows counts as running. */
+export function liveHandle(
+  listed: ListTerminalsResult,
+  handle: TerminalHandle
+): TerminalHandle | null {
+  if (!listed.ok) return null;
+  return listed.terminals.some((row) => row.handle === handle) ? handle : null;
+}
+
+/** The tab the coordinator's own pane lives in; recovery diffs inside it. */
+export function callerTabId(
+  terminals: readonly TerminalInfo[],
+  caller: TerminalHandle
+): string | null {
+  return terminals.find((row) => row.handle === caller)?.tabId ?? null;
+}
+
+export function tabHandles(
+  terminals: readonly TerminalInfo[],
+  tabId: string
+): ReadonlySet<TerminalHandle> {
+  return new Set(
+    terminals.filter((row) => row.tabId === tabId).map((row) => row.handle)
+  );
+}
+
+/** Handles in the tab that were not there when the split was attempted. */
+export function newHandlesInTab(
+  terminals: readonly TerminalInfo[],
+  tabId: string,
+  snapshot: ReadonlySet<TerminalHandle>
+): readonly TerminalHandle[] {
+  return [
+    ...new Set(
+      terminals
+        .filter((row) => row.tabId === tabId && !snapshot.has(row.handle))
+        .map((row) => row.handle)
+    ),
+  ].sort();
+}
+
+export type StartPlan =
+  | { readonly kind: "done" }
+  | { readonly kind: "resume"; readonly handle: TerminalHandle }
+  | { readonly kind: "dispatch" };
+
+export function planStart(args: {
+  readonly reportPresent: boolean;
+  readonly record: TerminalHandle | null;
+  readonly listed: ListTerminalsResult;
+}): StartPlan {
+  if (args.reportPresent) return { kind: "done" };
+  const running =
+    args.record === null ? null : liveHandle(args.listed, args.record);
+  return running === null
+    ? { kind: "dispatch" }
+    : { kind: "resume", handle: running };
+}
+
+export type SplitPlan =
+  | { readonly kind: "adopt"; readonly handle: TerminalHandle }
+  | { readonly kind: "recover"; readonly error: OrcaError };
+
+export function decideSplit(result: SplitResult): SplitPlan {
+  return result.ok
+    ? { kind: "adopt", handle: result.handle }
+    : { kind: "recover", error: result.error };
+}
+
+export type RecoveryPlan =
+  | { readonly kind: "adopted"; readonly handle: TerminalHandle }
+  | { readonly kind: "ambiguous"; readonly handles: readonly TerminalHandle[] }
+  | { readonly kind: "keep-polling" };
+
+export function decideRecovery(
+  candidates: readonly TerminalHandle[]
+): RecoveryPlan {
+  const unique = [...new Set(candidates)].sort();
+  if (unique.length === 0) return { kind: "keep-polling" };
+  return unique.length === 1
+    ? { kind: "adopted", handle: unique[0] }
+    : { kind: "ambiguous", handles: unique };
+}
+
+export type WaitPlan =
+  | { readonly kind: "done" }
+  | { readonly kind: "pane-gone" }
+  | { readonly kind: "still-running" }
+  | { readonly kind: "poll-again" };
+
+/**
+ * The order carries the rule: a report that landed outranks a pane that
+ * vanished, a vanished pane outranks the deadline, and the deadline is only
+ * consulted while both still say the unit is alive.
+ */
+export function decideWait(args: {
+  readonly reportPresent: boolean;
+  readonly paneListed: boolean;
+  readonly deadlineReached: boolean;
+}): WaitPlan {
+  if (args.reportPresent) return { kind: "done" };
+  if (!args.paneListed) return { kind: "pane-gone" };
+  if (args.deadlineReached) return { kind: "still-running" };
+  return { kind: "poll-again" };
+}
+
+/** Single-quote for `/bin/sh`. A quote inside a path or model id must survive. */
+export function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+/** The command the pane runs: one opencode run, one brief, one report. */
+export function delegateCommand(request: DispatchRequest): string {
+  const prompt =
+    `Read and follow the brief in ${request.brief}. ` +
+    `Write your final report to ${request.report}.`;
+  return (
+    `cd ${shellQuote(request.workdir)} && ` +
+    `opencode run --auto ` +
+    `-m ${shellQuote(request.model)} ` +
+    `--title ${shellQuote(`jstack ${request.name}`)} ` +
+    `${shellQuote(prompt)}`
+  );
+}
+
+/**
+ * A failed list is not evidence the pane died, so it keeps the pane counted as
+ * listed and lets the deadline decide instead of guessing a dead pane.
+ */
+async function paneStillListed(
+  orca: DispatchDependencies["orca"],
+  handle: TerminalHandle
+): Promise<boolean> {
+  const listed = await orca.listTerminals();
+  return !listed.ok || listed.terminals.some((row) => row.handle === handle);
+}
+
+/**
+ * The wait signal is the report file. The pane shell never exits after the
+ * delegate finishes, so `orca terminal wait --for exit` would answer "still
+ * working" on a finished unit; the report is what closes the loop.
+ */
+async function waitForReport(
+  deps: DispatchDependencies,
+  request: DispatchRequest,
+  inflight: InFlightState
+): Promise<TerminalState> {
+  const handle = inflight.handle;
+  const statePath = statePathFor(request);
+  const deadline = deps.clock.now() + request.timeoutMinutes * 60_000;
+  while (true) {
+    const plan = decideWait({
+      reportPresent: reportReady(deps.fs, request.report),
+      paneListed: await paneStillListed(deps.orca, handle),
+      deadlineReached: deps.clock.now() >= deadline,
+    });
+    if (plan.kind === "done") {
+      await deps.orca.close({ terminal: handle });
+      deps.fs.removeFile(statePath);
+      return { kind: "done", handle };
+    }
+    if (plan.kind === "pane-gone") return { kind: "pane-gone", handle };
+    if (plan.kind === "still-running")
+      return { kind: "still-running", handle };
+    await deps.clock.sleep(WAIT_POLL_MS);
+  }
+}
+
+type RecoveryOutcome =
+  | { readonly kind: "handle"; readonly handle: TerminalHandle }
+  | { readonly kind: "state"; readonly state: TerminalState };
+
+/**
+ * A split that did not answer may still have started a pane. Diff the caller's
+ * tab against the snapshot taken before the split: one new handle is the pane
+ * that was asked for, several belong to somebody else and must not be picked.
+ */
+async function recoverHandle(
+  deps: DispatchDependencies,
+  request: DispatchRequest,
+  args: {
+    readonly tabId: string;
+    readonly snapshot: ReadonlySet<TerminalHandle>;
+    readonly splitError: OrcaError;
+  }
+): Promise<RecoveryOutcome> {
+  const deadline = deps.clock.now() + request.recoverSeconds * 1_000;
+  while (true) {
+    const listed = await deps.orca.listTerminals();
+    const plan = decideRecovery(
+      listed.ok ? newHandlesInTab(listed.terminals, args.tabId, args.snapshot) : []
+    );
+    if (plan.kind === "adopted")
+      return { kind: "handle", handle: plan.handle };
+    if (plan.kind === "ambiguous")
+      return {
+        kind: "state",
+        state: {
+          kind: "ambiguous",
+          handle: null,
+          handles: plan.handles,
+          tabId: args.tabId,
+        },
+      };
+    if (deps.clock.now() >= deadline)
+      return {
+        kind: "state",
+        state: {
+          kind: "dispatch-failed",
+          handle: null,
+          reason: "no-new-pane",
+          tabId: args.tabId,
+          splitError: args.splitError,
+        },
+      };
+    await deps.clock.sleep(RECOVERY_POLL_MS);
+  }
+}
+
+/**
+ * The rule this script exists to enforce: one unit, one pane, ever. A report
+ * short-circuits, a live recorded handle resumes the wait instead of splitting
+ * again, and a split that does not answer is recovered from the terminal list
+ * before it is ever called a failure.
+ */
+export async function dispatch(
+  deps: DispatchDependencies,
+  request: DispatchRequest
+): Promise<TerminalState> {
+  if (reportReady(deps.fs, request.report))
+    return { kind: "done", handle: null };
+
+  const record = readStateFile(deps.fs, statePathFor(request));
+  const listed = await deps.orca.listTerminals();
+  const plan = planStart({
+    reportPresent: false,
+    record: record?.handle ?? null,
+    listed,
+  });
+  if (plan.kind === "done") return { kind: "done", handle: null };
+  if (plan.kind === "resume")
+    return waitForReport(deps, request, { kind: "running", handle: plan.handle });
+
+  // Nothing to adopt. This is the only place a split may run, and it refuses to
+  // run blind: without the caller's tab there is nothing to recover against.
+  if (!listed.ok)
+    return {
+      kind: "dispatch-failed",
+      handle: null,
+      reason: "terminal-list-unavailable",
+      tabId: null,
+      splitError: listed.error,
+    };
+  const tabId = callerTabId(listed.terminals, request.terminal);
+  if (tabId === null)
+    return {
+      kind: "dispatch-failed",
+      handle: null,
+      reason: "caller-tab-unknown",
+      tabId: null,
+      splitError: null,
+    };
+
+  const splitPlan = decideSplit(
+    await deps.orca.split({
+      terminal: request.terminal,
+      direction: request.direction,
+      command: delegateCommand(request),
+    })
+  );
+  let handle: TerminalHandle;
+  if (splitPlan.kind === "adopt") {
+    handle = splitPlan.handle;
+  } else {
+    const recovered = await recoverHandle(deps, request, {
+      tabId,
+      snapshot: tabHandles(listed.terminals, tabId),
+      splitError: splitPlan.error,
+    });
+    if (recovered.kind === "state") return recovered.state;
+    handle = recovered.handle;
+  }
+
+  writeStateFile(deps.fs, statePathFor(request), {
+    handle,
+    startedAt: deps.clock.observedAt(),
+  });
+  return waitForReport(deps, request, { kind: "dispatched", handle });
+}
