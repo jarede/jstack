@@ -64,7 +64,7 @@ Correct the log, not the story. The audit never edits or removes a row, even an 
 
 ## Cross-model review of the trail
 
-Before handing back, spawn a general worker on a different model family from the one that did the work. Use a configured role line from the jstack skill's `references/models.md` that resolves to that family. Spawn per the jstack skill's `references/harness.md` (Dispatch). Self-review is not a substitute. The worker reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
+Before handing back, spawn a general worker on a different model family from the one that did the work. Use a configured role line from the jstack skill's `references/models.md` that resolves to that family. Spawn per the jstack skill's `references/harness.md` (Dispatch). Self-review is not a substitute. The worker reads the audit trail and the run's transcript, then flags what the user should pay attention to. A transcript can hold secrets. Before an external-provider worker reads it, scrub credentials from a copy and pass the copy, or pass only the log, the briefs, the reports, and the diff. Never point one at the raw transcript. Not a redo of the work, a scan for what's suboptimal or risky.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.

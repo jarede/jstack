@@ -86,6 +86,12 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Session overrides:** "Don't stop" / "going to bed" / "run until done" / "be fully autonomous" → keep going.
 
+**Credentials, under any grant:**
+
+- Query a credential's metadata (which routes it covers, whether it is active), never its value. Never paste a secret into a command.
+- A secret the operator did not hand over is a blocker. Stop and report it. Never source one from a database, a sibling repo, or another app's config.
+- Once you flag a secret as exposed, ask whether it was rotated before any use that depends on it. A filled `.env` is not that answer.
+
 **No is an acceptable answer.** Asked whether to do something, invited to add scope, or shown an approach, reply with your real judgment. Decline, push back, or say "this doesn't earn its place" when true. A recommendation is a judgment, not a validation. Agreement is not the default, candor over sycophancy.
 
 ## Subagents
@@ -108,6 +114,7 @@ Write the reply clean as you draft it. A cleanup pass after drafting does not re
 - **Terse is not an excuse to drop content.** Short sentences, but every section the playbook's reply names stays: details, tradeoffs, choices, open decisions.
 - **Frame impact for the consumer and the maintainer.** Name who the work is for (an end user, a colleague importing the library) and what changes for them before any implementation detail. Then what the next engineer who owns this code inherits. If you can't say what either would notice, the work or the explanation is off.
 - **Never fabricate a link, citation, or transcript reference.** Link only artifacts you produced or read this session.
+- **Every line the operator sees stays in the operator's language**, progress pings included.
 - **Every claim carries its evidence or its label in the same sentence.** Measured, inferred, or guess. A prediction or an unseen cause is a guess. Never hand the human a check you could run.
 
 Every playbook ends with a reply written this way, MR link as `https://git.bistek.com.br/<group>/<project>/-/merge_requests/<iid>` (or the forge URL `references/environment.md` names for the repository). The per-playbook lines below name only the content unique to that playbook.
