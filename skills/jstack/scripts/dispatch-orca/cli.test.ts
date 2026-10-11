@@ -150,6 +150,31 @@ describe("renderResult", () => {
     expect(line).toContain("resumes the wait instead of dispatching");
   });
 
+  it("carries the exit status in JSON for a delegate that died", () => {
+    const line = renderResult(
+      { kind: "exited", handle: "term_x", exitStatus: 1 },
+      { request, json: true }
+    );
+    expect(JSON.parse(line)).toEqual({
+      status: "exited-no-report",
+      handle: "term_x",
+      exitStatus: 1,
+      report: "/repo/.jstack/runs/d1.report.md",
+      exitCode: 6,
+    });
+  });
+
+  it("tells the operator to read and close the pane of a delegate that died", () => {
+    const line = renderResult(
+      { kind: "exited", handle: "term_x", exitStatus: 1 },
+      { request, json: false }
+    );
+    expect(line.startsWith("exited-no-report:")).toBe(true);
+    expect(line).toContain("exited with status 1 in handle term_x");
+    expect(line).toContain("orca terminal read --terminal term_x --json");
+    expect(line).toContain("close it");
+  });
+
   it("says a retry is safe only when no delegate was started", () => {
     const line = renderResult(
       {

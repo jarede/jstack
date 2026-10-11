@@ -6,9 +6,11 @@ import {
   decideWait,
   delegateCommand,
   exitCodeOf,
+  exitPathFor,
   liveHandle,
   newHandlesInTab,
   planStart,
+  readExitStatus,
   readStateFile,
   reportReady,
   shellQuote,
@@ -37,6 +39,16 @@ describe("state file", () => {
     expect(statePathFor(request)).toBe(
       "/repo/.jstack/runs/d1.dispatch.json"
     );
+    expect(exitPathFor(request)).toBe("/repo/.jstack/runs/d1.exit");
+  });
+
+  it("reads the exit sidecar as an integer status, or null when absent", () => {
+    const fs = fakeFs();
+    expect(readExitStatus(fs, exitPathFor(request))).toBeNull();
+    fs.seed(exitPathFor(request), "1\n");
+    expect(readExitStatus(fs, exitPathFor(request))).toBe(1);
+    fs.seed(exitPathFor(request), "not a status");
+    expect(readExitStatus(fs, exitPathFor(request))).toBeNull();
   });
 
   it("round-trips a handle and a start time", () => {
@@ -197,25 +209,64 @@ describe("decideRecovery", () => {
 describe("decideWait", () => {
   it("prefers the report over every other signal", () => {
     expect(
-      decideWait({ reportPresent: true, paneListed: false, deadlineReached: true })
+      decideWait({
+        reportPresent: true,
+        exitPresent: true,
+        paneListed: false,
+        deadlineReached: true,
+      })
     ).toEqual({ kind: "done" });
+  });
+
+  it("prefers the exit sidecar over a vanished pane and the deadline", () => {
+    expect(
+      decideWait({
+        reportPresent: false,
+        exitPresent: true,
+        paneListed: false,
+        deadlineReached: true,
+      })
+    ).toEqual({ kind: "exited" });
+    expect(
+      decideWait({
+        reportPresent: false,
+        exitPresent: true,
+        paneListed: true,
+        deadlineReached: true,
+      })
+    ).toEqual({ kind: "exited" });
   });
 
   it("reports a vanished pane before it reports a timeout", () => {
     expect(
-      decideWait({ reportPresent: false, paneListed: false, deadlineReached: true })
+      decideWait({
+        reportPresent: false,
+        exitPresent: false,
+        paneListed: false,
+        deadlineReached: true,
+      })
     ).toEqual({ kind: "pane-gone" });
   });
 
   it("times out only while the pane is alive and the report is missing", () => {
     expect(
-      decideWait({ reportPresent: false, paneListed: true, deadlineReached: true })
+      decideWait({
+        reportPresent: false,
+        exitPresent: false,
+        paneListed: true,
+        deadlineReached: true,
+      })
     ).toEqual({ kind: "still-running" });
   });
 
   it("keeps waiting while the pane is alive and there is time left", () => {
     expect(
-      decideWait({ reportPresent: false, paneListed: true, deadlineReached: false })
+      decideWait({
+        reportPresent: false,
+        exitPresent: false,
+        paneListed: true,
+        deadlineReached: false,
+      })
     ).toEqual({ kind: "poll-again" });
   });
 });
@@ -241,6 +292,11 @@ describe("exit codes", () => {
         4,
       ],
       [{ kind: "pane-gone", handle: "term_x" }, "pane-gone-no-report", 5],
+      [
+        { kind: "exited", handle: "term_x", exitStatus: 1 },
+        "exited-no-report",
+        6,
+      ],
       [{ kind: "still-running", handle: "term_x" }, "still-running", 124],
     ] as const;
     for (const [state, status, exitCode] of table) {
@@ -251,12 +307,13 @@ describe("exit codes", () => {
 });
 
 describe("delegateCommand", () => {
-  it("runs the brief in the workdir on the requested model", () => {
+  it("runs the brief in the workdir on the requested model and records the exit", () => {
     expect(delegateCommand(request)).toBe(
-      "cd '/repo' && opencode run --auto -m 'opencode-go/grok-4.7' " +
-        "--title 'jstack d1' " +
-        "'Read and follow the brief in /repo/.jstack/runs/d1.brief.md. " +
-        "Write your final report to /repo/.jstack/runs/d1.report.md.'"
+      "cd '/repo' && /bin/sh -c 'opencode run --auto -m '\\''opencode-go/grok-4.7'\\'' " +
+        "--title '\\''jstack d1'\\'' " +
+        "'\\''Read and follow the brief in /repo/.jstack/runs/d1.brief.md. " +
+        "Write your final report to /repo/.jstack/runs/d1.report.md.'\\''; " +
+        "printf '\\''%s'\\'' \"$?\" > '\\''/repo/.jstack/runs/d1.exit'\\'''"
     );
   });
 

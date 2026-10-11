@@ -108,7 +108,12 @@ export type DispatchState =
       readonly tabId: string | null;
     }
   | { readonly kind: "pane-gone"; readonly handle: TerminalHandle }
-  | { readonly kind: "still-running"; readonly handle: TerminalHandle };
+  | { readonly kind: "still-running"; readonly handle: TerminalHandle }
+  | {
+      readonly kind: "exited";
+      readonly handle: TerminalHandle;
+      readonly exitStatus: number;
+    };
 
 /** `DispatchState` without the two in-flight kinds: everything with an exit code. */
 export type TerminalState = Exclude<DispatchState, InFlightState>;
@@ -119,7 +124,8 @@ export type DispatchStatus =
   | "dispatch-failed"
   | "ambiguous"
   | "pane-gone-no-report"
-  | "still-running";
+  | "still-running"
+  | "exited-no-report";
 
 /** Everything `dispatch()` needs. The state file path is derived, not passed. */
 export interface DispatchRequest {
@@ -148,4 +154,9 @@ export const WAIT_POLL_MS = 15_000;
 
 export function stateFileName(name: string): string {
   return `${name}.dispatch.json`;
+}
+
+/** The sidecar the pane's shell writes the delegate's exit status to. */
+export function exitFileName(name: string): string {
+  return `${name}.exit`;
 }

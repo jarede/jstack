@@ -2,6 +2,7 @@ import { dirname, join } from "node:path";
 import {
   RECOVERY_POLL_MS,
   WAIT_POLL_MS,
+  exitFileName,
   stateFileName,
   type DispatchDependencies,
   type DispatchFs,
@@ -24,6 +25,7 @@ export const EXIT_USAGE = 2;
 export const EXIT_DISPATCH_FAILED = 3;
 export const EXIT_AMBIGUOUS = 4;
 export const EXIT_PANE_GONE = 5;
+export const EXIT_DELEGATE_EXITED = 6;
 export const EXIT_STILL_RUNNING = 124;
 
 export function statusOf(state: TerminalState): DispatchStatus {
@@ -36,6 +38,8 @@ export function statusOf(state: TerminalState): DispatchStatus {
       return "ambiguous";
     case "pane-gone":
       return "pane-gone-no-report";
+    case "exited":
+      return "exited-no-report";
     case "still-running":
       return "still-running";
     default: {
@@ -55,6 +59,8 @@ export function exitCodeOf(state: TerminalState): number {
       return EXIT_AMBIGUOUS;
     case "pane-gone":
       return EXIT_PANE_GONE;
+    case "exited":
+      return EXIT_DELEGATE_EXITED;
     case "still-running":
       return EXIT_STILL_RUNNING;
     default: {
@@ -73,6 +79,19 @@ export function handleOf(state: TerminalState): TerminalHandle | null {
 
 export function statePathFor(request: DispatchRequest): string {
   return join(dirname(request.report), stateFileName(request.name));
+}
+
+/** The exit sidecar the pane writes once the delegate process returns. */
+export function exitPathFor(request: DispatchRequest): string {
+  return join(dirname(request.report), exitFileName(request.name));
+}
+
+/** The status the delegate's shell recorded, or null when it never wrote one. */
+export function readExitStatus(fs: DispatchFs, path: string): number | null {
+  const raw = fs.readTextFile(path);
+  if (raw === null) return null;
+  const status = Number.parseInt(raw.trim(), 10);
+  return Number.isNaN(status) ? null : status;
 }
 
 /** Step 1: the report is the only completion signal, and its size is the proof. */
@@ -199,21 +218,26 @@ export function decideRecovery(
 
 export type WaitPlan =
   | { readonly kind: "done" }
+  | { readonly kind: "exited" }
   | { readonly kind: "pane-gone" }
   | { readonly kind: "still-running" }
   | { readonly kind: "poll-again" };
 
 /**
- * The order carries the rule: a report that landed outranks a pane that
- * vanished, a vanished pane outranks the deadline, and the deadline is only
- * consulted while both still say the unit is alive.
+ * The order carries the rule: a report that landed outranks everything, an exit
+ * sidecar outranks a pane that vanished (the shell stays open after the delegate
+ * dies, so the pane alone cannot tell a finished unit from a running one), a
+ * vanished pane outranks the deadline, and the deadline is only consulted while
+ * both still say the unit is alive.
  */
 export function decideWait(args: {
   readonly reportPresent: boolean;
+  readonly exitPresent: boolean;
   readonly paneListed: boolean;
   readonly deadlineReached: boolean;
 }): WaitPlan {
   if (args.reportPresent) return { kind: "done" };
+  if (args.exitPresent) return { kind: "exited" };
   if (!args.paneListed) return { kind: "pane-gone" };
   if (args.deadlineReached) return { kind: "still-running" };
   return { kind: "poll-again" };
@@ -224,18 +248,23 @@ export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-/** The command the pane runs: one opencode run, one brief, one report. */
+/**
+ * The command the pane runs: one opencode run, one brief, one report, and a
+ * sidecar recording the exit status. The status is captured inside `/bin/sh -c`
+ * because the pane shell is the operator's, which may be fish and has no `$?`;
+ * the delegate's own output still reaches the pane untouched.
+ */
 export function delegateCommand(request: DispatchRequest): string {
   const prompt =
     `Read and follow the brief in ${request.brief}. ` +
     `Write your final report to ${request.report}.`;
-  return (
-    `cd ${shellQuote(request.workdir)} && ` +
+  const run =
     `opencode run --auto ` +
     `-m ${shellQuote(request.model)} ` +
     `--title ${shellQuote(`jstack ${request.name}`)} ` +
-    `${shellQuote(prompt)}`
-  );
+    `${shellQuote(prompt)}`;
+  const capture = `${run}; printf '%s' "$?" > ${shellQuote(exitPathFor(request))}`;
+  return `cd ${shellQuote(request.workdir)} && /bin/sh -c ${shellQuote(capture)}`;
 }
 
 /**
@@ -253,7 +282,9 @@ async function paneStillListed(
 /**
  * The wait signal is the report file. The pane shell never exits after the
  * delegate finishes, so `orca terminal wait --for exit` would answer "still
- * working" on a finished unit; the report is what closes the loop.
+ * working" on a finished unit; the report is what closes the loop. A delegate
+ * that died before writing one leaves its exit sidecar, which ends the wait
+ * immediately instead of running the deadline out.
  */
 async function waitForReport(
   deps: DispatchDependencies,
@@ -262,18 +293,24 @@ async function waitForReport(
 ): Promise<TerminalState> {
   const handle = inflight.handle;
   const statePath = statePathFor(request);
+  const exitPath = exitPathFor(request);
   const deadline = deps.clock.now() + request.timeoutMinutes * 60_000;
   while (true) {
+    const exitStatus = readExitStatus(deps.fs, exitPath);
     const plan = decideWait({
       reportPresent: reportReady(deps.fs, request.report),
+      exitPresent: exitStatus !== null,
       paneListed: await paneStillListed(deps.orca, handle),
       deadlineReached: deps.clock.now() >= deadline,
     });
     if (plan.kind === "done") {
       await deps.orca.close({ terminal: handle });
       deps.fs.removeFile(statePath);
+      deps.fs.removeFile(exitPath);
       return { kind: "done", handle };
     }
+    if (plan.kind === "exited")
+      return { kind: "exited", handle, exitStatus: exitStatus ?? 0 };
     if (plan.kind === "pane-gone") return { kind: "pane-gone", handle };
     if (plan.kind === "still-running")
       return { kind: "still-running", handle };
@@ -376,6 +413,9 @@ export async function dispatch(
       splitError: null,
     };
 
+  // A sidecar left by a previous run would end this wait the moment it starts,
+  // so a fresh delegate always begins without one.
+  deps.fs.removeFile(exitPathFor(request));
   const splitPlan = decideSplit(
     await deps.orca.split({
       terminal: request.terminal,

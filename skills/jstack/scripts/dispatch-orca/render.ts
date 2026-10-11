@@ -50,6 +50,12 @@ function detail(state: TerminalState, request: DispatchRequest): string {
         `: ${request.name} is still open in handle ${state.handle}; running this ` +
         "command again resumes the wait instead of dispatching"
       );
+    case "exited":
+      return (
+        `: the delegate exited with status ${state.exitStatus} in handle ` +
+        `${state.handle} without writing ${request.report}; read the pane with ` +
+        `\`orca terminal read --terminal ${state.handle} --json\`, then close it`
+      );
     default: {
       const undecided: never = state;
       return undecided;
@@ -66,6 +72,7 @@ export function renderResult(
     return JSON.stringify({
       status: statusOf(state),
       handle: handleOf(state),
+      ...(state.kind === "exited" ? { exitStatus: state.exitStatus } : {}),
       report: context.request.report,
       exitCode: exitCodeOf(state),
     });

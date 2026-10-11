@@ -25,6 +25,7 @@ const caller = terminal("term_caller", "tab-1");
 const sibling = terminal("term_sibling", "tab-1");
 const delegate = terminal("term_delegate", "tab-1");
 const statePath = "/repo/.jstack/runs/d1.dispatch.json";
+const exitPath = "/repo/.jstack/runs/d1.exit";
 const report = "/repo/.jstack/runs/d1.report.md";
 
 const argv = [
@@ -300,6 +301,38 @@ describe("step 4: waiting", () => {
     expect(await main(argv, active)).toBe(5);
     expect(stdout[0]).toStartWith("pane-gone-no-report:");
     expect(built.orca.closes).toEqual([]);
+  });
+
+  it("exits 6, leaving the pane open, when the delegate wrote an exit file", async () => {
+    const built = harness({
+      listScript: [[caller, sibling], [caller, sibling, delegate]],
+      splitResult: { ok: true, handle: "term_delegate" },
+      onSleep: (slept) => {
+        if (slept.length === 1) built.fs.seed(exitPath, "1");
+      },
+    });
+    const { runtime: active, stdout } = runtime(built);
+    expect(await main(argv, active)).toBe(6);
+    expect(stdout[0]).toStartWith("exited-no-report:");
+    expect(stdout[0]).toContain("exited with status 1");
+    expect(built.orca.closes).toEqual([]);
+    expect(built.fs.files.has(exitPath)).toBe(true);
+  });
+
+  it("removes a stale exit file before a fresh split", async () => {
+    const built = harness({
+      listScript: [[caller, sibling], [caller, sibling, delegate]],
+      splitResult: { ok: true, handle: "term_delegate" },
+      seed: { [exitPath]: "1" },
+      onSleep: (slept) => {
+        if (slept.length === 1) built.fs.seed(report, "# d1\n");
+      },
+    });
+    const { runtime: active, stdout } = runtime(built);
+    expect(await main(argv, active)).toBe(0);
+    expect(stdout).toEqual(["done\n"]);
+    expect(built.orca.splits).toHaveLength(1);
+    expect(built.fs.files.has(exitPath)).toBe(false);
   });
 
   it("exits 124 with the pane and the state file left in place", async () => {
