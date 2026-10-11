@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test orch watch-mr dispatch-orca",
+    "test": "bun test orch watch-mr dispatch-orca check-plan",
     "typecheck": "tsc --project watch-mr/tsconfig.json --noEmit --strict && tsc --project dispatch-orca/tsconfig.json --noEmit --strict"
   },
   "dependencies": {
