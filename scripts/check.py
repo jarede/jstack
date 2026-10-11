@@ -142,10 +142,53 @@ def check_text() -> None:
                 errors.append(f"{rel}: path '{ref}' does not exist")
 
 
+def kebab(title: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9\s-]", "", title.lower())
+    return re.sub(r"[\s-]+", "-", cleaned).strip("-")
+
+
+SECTION_ENTRY_RE = re.compile(r"^\s*-\s+\*\*(.+?)\*\*(.*)$")
+GIVEN_NAME_RE = re.compile(r"\(\*\*([a-z0-9][a-z0-9-]*)\*\*\)")
+FILE_POINTER_RE = re.compile(r"File:\s*`([^`]+)`")
+
+
+def section_entries(text: str, heading: str):
+    inside = False
+    for n, line in enumerate(text.splitlines(), 1):
+        if line.startswith("## "):
+            inside = line[3:].strip() == heading
+            continue
+        if inside:
+            m = SECTION_ENTRY_RE.match(line)
+            if m:
+                yield n, m.group(1), m.group(2)
+
+
+def check_index() -> None:
+    skill_md = ROOT / "skills" / "jstack" / "SKILL.md"
+    text = skill_md.read_text()
+    rel = skill_md.relative_to(ROOT)
+    for n, title, rest in section_entries(text, "Principles"):
+        given = GIVEN_NAME_RE.search(rest)
+        name = given.group(1) if given else f"principle-{kebab(title)}"
+        if not (ROOT / "skills" / name / "SKILL.md").is_file():
+            errors.append(
+                f"{rel}:{n}: principle '{title}' -> skills/{name}/SKILL.md does not exist"
+            )
+    for n, title, rest in section_entries(text, "Playbooks"):
+        given = FILE_POINTER_RE.search(rest)
+        path = given.group(1) if given else f"playbooks/{kebab(title)}.md"
+        if not (ROOT / "skills" / "jstack" / path).is_file():
+            errors.append(
+                f"{rel}:{n}: playbook '{title}' -> skills/jstack/{path} does not exist"
+            )
+
+
 def main() -> int:
     check_skills()
     check_agents()
     check_text()
+    check_index()
     for w in warnings:
         print(f"warn  {w}")
     for e in errors:
