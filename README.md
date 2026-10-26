@@ -57,6 +57,7 @@ Facts about my infrastructure live in one file, [environment.md](skills/jstack/r
 | [`/why`](skills/why/SKILL.md) | you want to know why something was built this way, from every evidence source available. |
 | [`/recall`](skills/recall/SKILL.md) | you are resuming work and want your recent context rebuilt from your transcripts and the shared record. |
 | [`/ketchup`](skills/ketchup/SKILL.md) | you want to catch up on what changed in this chat since your last message, in plain words, with every call waiting on you laid out so you can decide from the reply alone. |
+| [`/ketchup-video`](skills/ketchup-video/SKILL.md) | you want the `/ketchup` catch-up as a short silent video of slides, with the calls waiting on you as text under it. |
 | [`/blast-radius`](skills/blast-radius/SKILL.md) | a small-looking change might break something else. |
 | [`/architect`](skills/architect/SKILL.md) | code is about to cross a function boundary and the caller's usage, types, and module shape should be settled first. |
 | [`/arena`](skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then the best parts of each. |
