@@ -1,7 +1,8 @@
 #!/bin/sh
 # Runs TLC on the orch store lock model with both configs and reports whether
-# Mutex holds. Exits 0 when both hold, 1 when any config violates Mutex, and 2
-# when TLC or Java cannot be found or a run fails for another reason.
+# Mutex and NoEmptyLock hold. Exits 0 when both hold in both configs, 1 when any
+# config violates either, and 2 when TLC or Java cannot be found or a run fails
+# for another reason.
 #
 # Set TLA2TOOLS to tla2tools.jar and JAVA to a java binary to skip the lookup,
 # as the statechart skill does.
@@ -11,7 +12,7 @@ set -u
 TLC_TOOL='github:tlaplus/tlaplus[asset_pattern=tla2tools.jar,checksum=sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88]@1.7.4'
 JAVA_TOOL='java@temurin-25'
 
-here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 2
+here=$(CDPATH= cd "$(dirname "$0")" && pwd) || exit 2
 
 install_command() {
   printf 'cd "$(mktemp -d)" && MISE_CEILING_PATHS="$PWD" mise install %s %s\n' \
@@ -75,6 +76,11 @@ fi
 
 failed=0
 
+trace() {
+  sed -n "/^Error: Invariant $1 is violated/,/^[0-9][0-9,]* states generated/p" \
+    "$2" | sed '$d'
+}
+
 check() {
   name=$1
   cfg=$2
@@ -89,13 +95,22 @@ check() {
   states=$(sed -n 's/.*, \([0-9][0-9,]*\) distinct states found.*/\1/p' "$log" |
     tail -n 1 | tr -d ',')
 
-  if grep -q '^Error: Invariant Mutex is violated' "$log"; then
-    echo "$name: Mutex VIOLATED (${states:-?} states)"
-    sed -n '/^Error: Invariant Mutex is violated/,/^[0-9][0-9,]* states generated/p' "$log" |
-      sed '$d'
+  mutex=holds
+  empty=holds
+  grep -q '^Error: Invariant Mutex is violated' "$log" && mutex=VIOLATED
+  grep -q '^Error: Invariant NoEmptyLock is violated' "$log" && empty=VIOLATED
+
+  if [ "$mutex" = VIOLATED ] || [ "$empty" = VIOLATED ]; then
+    echo "$name: Mutex $mutex, NoEmptyLock $empty (${states:-?} states)"
+    if [ "$mutex" = VIOLATED ]; then
+      trace Mutex "$log"
+    fi
+    if [ "$empty" = VIOLATED ]; then
+      trace NoEmptyLock "$log"
+    fi
     failed=1
   elif [ "$status" -eq 0 ] && grep -q 'No error has been found' "$log"; then
-    echo "$name: Mutex holds (${states:-?} states)"
+    echo "$name: Mutex holds, NoEmptyLock holds (${states:-?} states)"
   else
     echo "$name: TLC failed" >&2
     cat "$log" >&2
