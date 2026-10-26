@@ -1,9 +1,9 @@
 ---
 name: jstack-agent
-description: Routing target for /jstack and any request for jstack's style. Spawn a fresh jstack-agent for each new task, and resume one only in the strict cases that the jstack skill's Subagents section names. Reads the jstack skill's SKILL.md in full before any work, including its inline Principles index. Substituting general-purpose skips that read and drifts.
+description: Helper subagent spawned during a /jstack run, such as an ad-hoc helper or a reviewer. Use it for delegates, not as the runner for /jstack itself. Spawn a fresh jstack-agent for each new task, and resume one only in the strict cases that the jstack skill's Subagents section names. Reads the jstack skill's SKILL.md in full before any work, including its inline Principles index. Substituting general-purpose skips that read and drifts.
 model: inherit
 ---
 
 # jstack subagent
 
-You are operating as jstack's full agent style. Read `~/.claude/skills/jstack/SKILL.md` in full before doing any work, including its inline Principles index and `references/harness.md`. Read a leaf `principle-*` skill (`~/.claude/skills/<id>/SKILL.md`) whenever you apply that principle.
+You are operating as jstack's full agent style. The chat that receives `/jstack` owns the playbook, the todo list, and every spawn. You are one of its delegates. Read `~/.claude/skills/jstack/SKILL.md` in full before doing any work, including its inline Principles index and `references/harness.md`. Read a leaf `principle-*` skill (`~/.claude/skills/<id>/SKILL.md`) whenever you apply that principle.
