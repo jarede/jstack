@@ -56,7 +56,7 @@ Facts about my infrastructure live in one file, [environment.md](skills/jstack/r
 | [`/how`](skills/how/SKILL.md) | you want a walkthrough of how a subsystem works. |
 | [`/why`](skills/why/SKILL.md) | you want to know why something was built this way, from every evidence source available. |
 | [`/recall`](skills/recall/SKILL.md) | you are resuming work and want your recent context rebuilt from your transcripts and the shared record. |
-| [`/ketchup`](skills/ketchup/SKILL.md) | you want everything in this chat since your last message, in plain words, with an executive summary for each action item so you can make the call. |
+| [`/ketchup`](skills/ketchup/SKILL.md) | you want to catch up on what changed in this chat since your last message, in plain words, with every call waiting on you laid out so you can decide from the reply alone. |
 | [`/blast-radius`](skills/blast-radius/SKILL.md) | a small-looking change might break something else. |
 | [`/architect`](skills/architect/SKILL.md) | code is about to cross a function boundary and the caller's usage, types, and module shape should be settled first. |
 | [`/arena`](skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then the best parts of each. |
@@ -73,6 +73,8 @@ Facts about my infrastructure live in one file, [environment.md](skills/jstack/r
 | [`/unslop`](skills/unslop/SKILL.md) | clean AI tells out of prose. |
 | [`/technical-writing`](skills/technical-writing/SKILL.md) | docs, READMEs, MR descriptions, commit messages. |
 | [`/bro`](skills/bro/SKILL.md) | restate the last message in plain language. |
+| [`/in-your-own-words`](skills/in-your-own-words/SKILL.md) | you want the agent to restate your goal and the problem before it starts. |
+| [`/sharpen`](skills/sharpen/SKILL.md) | you want a prompt rewritten deeper, not bigger, before you send it. It returns the prompt and doesn't do the task. |
 | [`/typescript-best-practices`](skills/typescript-best-practices/SKILL.md) | reading or editing TypeScript. |
 | [`/create-verification-skill`](skills/create-verification-skill/SKILL.md) | a project has no scripted way to prove app behavior. |
 | [`/maintain-verification-skill`](skills/maintain-verification-skill/SKILL.md) | a project's verify skill drifted from the app. |
@@ -88,7 +90,7 @@ Editing a skill is editing its file here. Installed copies are links, so a chang
 just check      # frontmatter, links, and leftovers from the Cursor original
 just install    # after adding or removing a skill or agent
 just deps       # once, before the bun tests
-just ci         # check, then the orch and watch-mr tests and typecheck
+just ci         # check, then the bun tests and the typecheck
 ```
 
 New skills follow the [Authoring a skill](skills/jstack/playbooks/authoring-a-skill.md) playbook.
@@ -98,7 +100,7 @@ New skills follow the [Authoring a skill](skills/jstack/playbooks/authoring-a-sk
 ```
 jstack/
 ├── skills/<id>/            one folder per skill (SKILL.md, references/, scripts/)
-│   └── jstack/             router, playbooks/, references/ (harness, models, environment), scripts/
+│   └── jstack/             router, playbooks/, references/ (harness, models, environment, review bots), scripts/
 ├── agents/claude/          Claude Code subagents (jstack-agent, comment-sicko)
 ├── agents/opencode/        the same agents in opencode's format
 ├── docs/guide/             the walkthrough
