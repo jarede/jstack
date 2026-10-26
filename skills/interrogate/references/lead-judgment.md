@@ -50,9 +50,3 @@ Don't dismiss findings just because they're uncomfortable. The whole point of ad
 - You read the finding and think "...yeah, actually"
 
 Be especially careful about dismissing security findings and correctness bugs. These deserve more scrutiny even when they come from a single model.
-
-## Verdict Calibration
-
-A good verdict is useful, not comprehensive. The user should be able to read the "Act On" section, fix those issues, and ship with confidence. If your "Act On" list has more than 5 items, you're probably not filtering hard enough.
-
-The "Dismissed" section is not busywork. It's a trust mechanism. Showing the user what you rejected and why lets them override your judgment where they disagree. This is more valuable than hiding the rejected findings.
