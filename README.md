@@ -80,6 +80,7 @@ Facts about my infrastructure live in one file, [environment.md](skills/jstack/r
 | [`/maintain-verification-skill`](skills/maintain-verification-skill/SKILL.md) | a project's verify skill drifted from the app. |
 | [`/create-formal-verification-skill`](skills/create-formal-verification-skill/SKILL.md) | a race, a retry, or an invariant needs proof in every case, not only the ones tests reach. |
 | [`/maintain-formal-verification-skill`](skills/maintain-formal-verification-skill/SKILL.md) | code covered by a formal check changed, and you need to know whether a failure is drift or a bug. |
+| [`/statechart`](skills/statechart/SKILL.md) | someone who owns the behavior needs to see it, not read a spec. Draws a TLA+ model as a Mermaid statechart, with each bug as a numbered path. |
 | [`/automate-me`](skills/automate-me/SKILL.md) | you want a personal `-mode` skill drafted from how you actually work. |
 
 Plus 24 `principle-*` skills, one rule each, indexed inline by `/jstack`.

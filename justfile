@@ -24,9 +24,10 @@ check:
 deps:
     cd {{tools}} && bun install
 
-# Run the orch and watch-mr tests
+# Run the orch and watch-mr tests and the statechart tests
 test:
     cd {{tools}} && bun run test
+    node --test skills/statechart/scripts/test/statechart.test.mjs
 
 # Typecheck watch-mr
 typecheck:
