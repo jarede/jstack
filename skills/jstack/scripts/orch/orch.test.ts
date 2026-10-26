@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import {
   chmod,
+  link,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
   rm,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import { realpathSync } from "node:fs";
@@ -204,6 +206,36 @@ function runCli(
   };
 }
 
+async function runCliAsync(args: readonly string[]): Promise<RunResult> {
+  const proc = Bun.spawn([process.execPath, SCRIPT, ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { code, stdout, stderr };
+}
+
+function pushedUnits(text: string): readonly string[] {
+  const units: string[] = [];
+  for (const line of text.split("\n")) {
+    const cells = line.split("\t");
+    if (cells.length >= 3) {
+      units.push(cells[2] ?? "");
+    }
+  }
+  return units;
+}
+
+async function deadPid(): Promise<number> {
+  const exited = Bun.spawn(["true"], { stdout: "ignore", stderr: "ignore" });
+  await exited.exited;
+  return exited.pid;
+}
+
 afterEach(async () => {
   for (const store of handles.splice(0).reverse()) {
     await store.close();
@@ -382,6 +414,169 @@ describe("Store", () => {
     await recovered.close();
     expect(await readdir(directory)).not.toContain(".orch.lock");
   });
+
+  it("replaces a stale lock with this process's pid and leaves no claim or temp file", async () => {
+    const { directory } = await initializedStore();
+    const dead = await deadPid();
+    await writeFile(join(directory, ".orch.lock"), `${dead}\n`);
+
+    const recovered = useStore(directory);
+    await recovered.units.add({ id: "u1", track: "build" });
+
+    expect(await readFile(join(directory, ".orch.lock"), "utf8")).toBe(
+      `${process.pid}\n`
+    );
+    expect(
+      (await readdir(directory)).filter(
+        (name) =>
+          name.startsWith(".orch.lock.reap-") ||
+          (name.startsWith(".orch.lock.") && name.endsWith(".tmp"))
+      )
+    ).toEqual([]);
+
+    await recovered.close();
+    expect(await readdir(directory)).not.toContain(".orch.lock");
+  });
+
+  it("fails on an empty lock and replaces it only with force", async () => {
+    const { directory } = await initializedStore();
+    const lock = join(directory, ".orch.lock");
+    await writeFile(lock, "");
+
+    const blocked = useStore(directory);
+    await expect(
+      blocked.units.add({ id: "u1", track: "build" })
+    ).rejects.toThrow("store lock held by pid unknown");
+    await blocked.close();
+
+    const forced = useStore(directory, { force: true });
+    expect(
+      await forced.units.add({ id: "u1", track: "build" })
+    ).toMatchObject({ id: "u1" });
+    expect(await readFile(lock, "utf8")).toBe(`${process.pid}\n`);
+
+    await forced.close();
+    expect(await readdir(directory)).not.toContain(".orch.lock");
+  });
+
+  it("fails on a stale lock already claimed for reaping, and force clears the claim", async () => {
+    const { directory } = await initializedStore();
+    const dead = await deadPid();
+    const lock = join(directory, ".orch.lock");
+    await writeFile(lock, `${dead}\n`);
+    const inode = (await stat(lock, { bigint: true })).ino;
+    const claim = join(directory, `.orch.lock.reap-${inode}`);
+    await link(lock, claim);
+
+    const blocked = useStore(directory);
+    await expect(
+      blocked.units.add({ id: "u1", track: "build" })
+    ).rejects.toThrow(`store lock held by pid ${dead}`);
+    await blocked.close();
+    expect((await stat(claim, { bigint: true })).ino).toBe(inode);
+
+    const forced = useStore(directory, { force: true });
+    expect(
+      await forced.units.add({ id: "u1", track: "build" })
+    ).toMatchObject({ id: "u1" });
+    expect(await readFile(lock, "utf8")).toBe(`${process.pid}\n`);
+    expect(
+      (await readdir(directory)).filter((name) =>
+        name.startsWith(".orch.lock.reap-")
+      )
+    ).toEqual([]);
+
+    await forced.close();
+    expect(await readdir(directory)).not.toContain(".orch.lock");
+  });
+
+  it(
+    "keeps one holder through a stale-lock stampede with no lost pointers",
+    async () => {
+      const rounds = 100;
+      const pushes = 8;
+      let lostPointers = 0;
+      let roundsWithLoss = 0;
+      let roundsWithTwoTakeovers = 0;
+
+      for (let round = 0; round < rounds; round += 1) {
+        const directory = await makeDirectory();
+        const seeded = useStore(directory);
+        await seeded.init();
+        await seeded.close();
+
+        const dead = await deadPid();
+        await writeFile(join(directory, ".orch.lock"), `${dead}\n`);
+
+        const units = Array.from(
+          { length: pushes },
+          (_, index) => `u-${round}-${index}`
+        );
+        const pushesInFlight = units.map((unit) =>
+          runCliAsync([
+            "--store",
+            directory,
+            "inbox",
+            "push",
+            "agent",
+            unit,
+            "done",
+          ])
+        );
+        const drainInFlight = runCliAsync([
+          "--store",
+          directory,
+          "inbox",
+          "drain",
+        ]);
+        const results = await Promise.all(pushesInFlight);
+        const drain = await drainInFlight;
+        const finalDrain = await runCliAsync([
+          "--store",
+          directory,
+          "inbox",
+          "drain",
+        ]);
+
+        const collected = new Set([
+          ...pushedUnits(drain.stdout),
+          ...pushedUnits(finalDrain.stdout),
+        ]);
+        let lostHere = 0;
+        for (const [index, result] of results.entries()) {
+          if (result.code === 0 && !collected.has(units[index] ?? "")) {
+            lostHere += 1;
+          }
+        }
+
+        const takeovers =
+          results.filter(
+            (result) =>
+              result.code === 0 &&
+              result.stderr.includes("replacing stale store lock")
+          ).length +
+          (drain.code === 0 &&
+          drain.stderr.includes("replacing stale store lock")
+            ? 1
+            : 0);
+
+        lostPointers += lostHere;
+        if (lostHere > 0) {
+          roundsWithLoss += 1;
+        }
+        if (takeovers >= 2) {
+          roundsWithTwoTakeovers += 1;
+        }
+      }
+
+      expect({ lostPointers, roundsWithLoss, roundsWithTwoTakeovers }).toEqual({
+        lostPointers: 0,
+        roundsWithLoss: 0,
+        roundsWithTwoTakeovers: 0,
+      });
+    },
+    120_000
+  );
 
   it("blocks a writer and steals the pid lock only with force", async () => {
     const { directory, store } = await initializedStore();

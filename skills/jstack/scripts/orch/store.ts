@@ -4,12 +4,14 @@ import { randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
 import {
   access,
+  link,
   mkdir,
   open,
   readFile,
   readdir,
   rename,
   rm,
+  stat,
   unlink,
   writeFile,
 } from "node:fs/promises";
@@ -389,22 +391,61 @@ async function acquireLock(
   const path = join(store, LOCK_FILE);
   const pid = String(process.pid);
   const create = async (): Promise<void> => {
-    const handle = await open(path, "wx");
-    await handle.writeFile(`${pid}\n`);
-    await handle.close();
+    const temporary = join(store, `${LOCK_FILE}.${pid}.${randomUUID()}.tmp`);
+    try {
+      const handle = await open(temporary, "wx");
+      try {
+        await handle.writeFile(`${pid}\n`);
+      } finally {
+        await handle.close();
+      }
+      await link(temporary, path);
+    } finally {
+      await rm(temporary, { force: true });
+    }
   };
 
-  const takeOver = async (): Promise<void> => {
-    await unlink(path);
-    try {
-      await create();
-    } catch (retryError) {
-      if (errorCode(retryError) === "EEXIST") {
-        const retryHolder =
-          (await readFile(path, "utf8")).trim() || "unknown";
-        throw new UserError(`store lock held by pid ${retryHolder}`);
+  // A reaper holds R, a hard link to the inode it read at step 2, so only one
+  // process can remove that inode's lock. The inode alone is not enough to trust
+  // R: it can be reused, so the content must still name the same holder.
+  const reap = async (holder: string, inode: bigint): Promise<void> => {
+    const claim = join(store, `${LOCK_FILE}.reap-${inode}`);
+    const claimFailed = (error: unknown): never => {
+      const code = errorCode(error);
+      if (code === "EEXIST" || code === "ENOENT") {
+        throw new UserError(`store lock held by pid ${holder}`);
       }
-      throw retryError;
+      throw error;
+    };
+
+    try {
+      await link(path, claim);
+    } catch (error) {
+      if (errorCode(error) !== "EEXIST" || !options.force) {
+        claimFailed(error);
+      }
+      await rm(claim, { force: true });
+      await link(path, claim).catch(claimFailed);
+    }
+
+    // From here the claim is ours; every path below must remove it.
+    try {
+      const claimStat = await stat(claim, { bigint: true });
+      const claimBody = (await readFile(claim, "utf8")).trim();
+      if (claimStat.ino !== inode || claimBody !== holder) {
+        throw new UserError(`store lock held by pid ${holder}`);
+      }
+      await unlink(path);
+      try {
+        await create();
+      } catch (error) {
+        if (errorCode(error) === "EEXIST") {
+          claimFailed(error);
+        }
+        throw error;
+      }
+    } finally {
+      await rm(claim, { force: true });
     }
   };
 
@@ -415,19 +456,48 @@ async function acquireLock(
       throw error;
     }
     let holder = "unknown";
-    try {
-      holder = (await readFile(path, "utf8")).trim() || "unknown";
-    } catch {
-      holder = "unknown";
+    let inode: bigint | null = null;
+    const handle = await open(path, "r").catch(() => null);
+    if (handle !== null) {
+      try {
+        const body = (await handle.readFile("utf8")).trim();
+        const seen = (await handle.stat({ bigint: true })).ino;
+        if (body.length > 0) {
+          holder = body;
+          inode = seen;
+        }
+      } catch {
+        holder = "unknown";
+        inode = null;
+      } finally {
+        await handle.close();
+      }
     }
-    if (holderIsDead(holder)) {
+    const dead = holderIsDead(holder);
+    if (dead) {
       options.onStaleLock?.(holder);
-      await takeOver();
     } else if (options.force) {
       options.onLockStolen?.(holder);
-      await takeOver();
     } else {
       throw new UserError(`store lock held by pid ${holder}`);
+    }
+    if (inode === null) {
+      if (!options.force) {
+        throw new UserError(`store lock held by pid ${holder}`);
+      }
+      // An empty or unreadable lock has no inode to claim, so --force falls
+      // back to replacing it outright.
+      await rm(path, { force: true });
+      try {
+        await create();
+      } catch (error) {
+        if (errorCode(error) === "EEXIST") {
+          throw new UserError(`store lock held by pid ${holder}`);
+        }
+        throw error;
+      }
+    } else {
+      await reap(holder, inode);
     }
   }
 
