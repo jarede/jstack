@@ -99,7 +99,6 @@ describe("renderResult", () => {
     brief: "/repo/.jstack/runs/d1.brief.md",
     report: "/repo/.jstack/runs/d1.report.md",
     terminal: "term_caller",
-    direction: "horizontal",
     timeoutMinutes: 45,
     recoverSeconds: 60,
   };

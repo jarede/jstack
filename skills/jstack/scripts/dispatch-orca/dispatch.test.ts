@@ -50,7 +50,6 @@ const request = (overrides: Partial<DispatchRequest> = {}): DispatchRequest => (
   brief: "/repo/.jstack/runs/d1.brief.md",
   report,
   terminal: "term_caller",
-  direction: "horizontal",
   timeoutMinutes: 45,
   recoverSeconds: 60,
   ...overrides,
@@ -64,6 +63,7 @@ interface Harness {
 
 function harness(options: {
   readonly listScript?: readonly (readonly TerminalInfo[])[];
+  readonly layouts?: FakeOrcaOptions["layouts"];
   readonly splitResult?: FakeOrcaOptions["splitResult"];
   readonly onSleep?: FakeClockOptions["onSleep"];
   readonly seed?: Readonly<Record<string, string>>;
@@ -74,6 +74,7 @@ function harness(options: {
   return {
     orca: fakeOrca({
       ...(options.listScript === undefined ? {} : { listScript: options.listScript }),
+      ...(options.layouts === undefined ? {} : { layouts: options.layouts }),
       ...(options.splitResult === undefined ? {} : { splitResult: options.splitResult }),
     }),
     fs,
@@ -199,7 +200,7 @@ describe("step 3: the split answers", () => {
     );
   });
 
-  it("passes the delegate command and the caller handle to the split", async () => {
+  it("falls back to the coordinator with a horizontal split when there is no tree", async () => {
     const built = harness({
       listScript: [[caller, sibling], [caller, sibling, delegate]],
       splitResult: { ok: true, handle: "term_delegate" },
@@ -213,6 +214,36 @@ describe("step 3: the split answers", () => {
       direction: "horizontal",
     });
     expect(built.orca.splits[0]?.command).toContain("opencode run --auto");
+  });
+
+  it("splits the shallowest delegate across its parent's direction", async () => {
+    const first = terminal("term_d1", "tab-1");
+    const built = harness({
+      listScript: [
+        [caller, first],
+        [caller, first, delegate],
+      ],
+      layouts: [
+        {
+          tabId: "tab-1",
+          panes: {
+            type: "pane-split",
+            direction: "horizontal",
+            first: { type: "terminal", handle: "term_caller" },
+            second: { type: "terminal", handle: "term_d1" },
+          },
+        },
+      ],
+      splitResult: { ok: true, handle: "term_delegate" },
+    });
+    await dispatch(
+      { orca: built.orca, fs: built.fs, clock: built.clock },
+      request({ timeoutMinutes: 1 / 60 })
+    );
+    expect(built.orca.splits[0]).toMatchObject({
+      terminal: "term_d1",
+      direction: "vertical",
+    });
   });
 });
 
@@ -404,8 +435,8 @@ describe("step 4: waiting", () => {
         ? orcaError("unreadable_output", "no json")
         : (next as never);
     };
-    listed.push({ ok: true, terminals: [caller, sibling] });
-    listed.push({ ok: true, terminals: [caller, sibling, delegate] });
+    listed.push({ ok: true, terminals: [caller, sibling], layouts: [] });
+    listed.push({ ok: true, terminals: [caller, sibling, delegate], layouts: [] });
     const fs = fakeFs();
     const clock = fakeClock({
       onSleep: (slept) => {

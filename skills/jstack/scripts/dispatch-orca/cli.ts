@@ -140,7 +140,6 @@ function requestOf(options: CliOptions): DispatchRequest {
     brief: options.brief,
     report: options.report,
     terminal: options.terminal,
-    direction: "horizontal",
     timeoutMinutes: options.timeoutMinutes,
     recoverSeconds: options.recoverSeconds,
   };

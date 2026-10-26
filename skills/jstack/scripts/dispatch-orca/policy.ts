@@ -13,6 +13,8 @@ import {
   type InFlightState,
   type ListTerminalsResult,
   type OrcaError,
+  type PaneNode,
+  type SplitDirection,
   type SplitResult,
   type TerminalHandle,
   type TerminalInfo,
@@ -171,6 +173,61 @@ export function newHandlesInTab(
         .map((row) => row.handle)
     ),
   ].sort();
+}
+
+export interface PaneSplitTarget {
+  readonly terminal: TerminalHandle;
+  readonly direction: SplitDirection;
+}
+
+interface PaneLeaf {
+  readonly handle: TerminalHandle;
+  readonly depth: number;
+  readonly parentDirection: SplitDirection | null;
+}
+
+/** Leaves in tree order: `first` before `second`, so top-down then left-right. */
+function paneLeaves(
+  node: PaneNode,
+  depth: number,
+  parentDirection: SplitDirection | null
+): readonly PaneLeaf[] {
+  if (node.type === "terminal")
+    return [{ handle: node.handle, depth, parentDirection }];
+  return [
+    ...paneLeaves(node.first, depth + 1, node.direction),
+    ...paneLeaves(node.second, depth + 1, node.direction),
+  ];
+}
+
+/**
+ * Which pane the next delegate splits, and across which axis. Splitting the
+ * shallowest delegate keeps the grid square, and crossing the parent's
+ * direction keeps each new pane the same size as its siblings. The direction
+ * is inverted because in Orca `horizontal` stacks panes and `vertical` puts
+ * them side by side.
+ */
+export function planPaneSplit(
+  tree: PaneNode | null,
+  coordinator: TerminalHandle
+): PaneSplitTarget {
+  const fallback: PaneSplitTarget = {
+    terminal: coordinator,
+    direction: "horizontal",
+  };
+  if (tree === null) return fallback;
+  const leaves = paneLeaves(tree, 0, null);
+  if (!leaves.some((leaf) => leaf.handle === coordinator)) return fallback;
+  let target: PaneLeaf | null = null;
+  for (const leaf of leaves) {
+    if (leaf.handle === coordinator) continue;
+    if (target === null || leaf.depth < target.depth) target = leaf;
+  }
+  if (target === null) return fallback;
+  return {
+    terminal: target.handle,
+    direction: target.parentDirection === "horizontal" ? "vertical" : "horizontal",
+  };
 }
 
 export type StartPlan =
@@ -416,10 +473,14 @@ export async function dispatch(
   // A sidecar left by a previous run would end this wait the moment it starts,
   // so a fresh delegate always begins without one.
   deps.fs.removeFile(exitPathFor(request));
+  const target = planPaneSplit(
+    listed.layouts.find((layout) => layout.tabId === tabId)?.panes ?? null,
+    request.terminal
+  );
   const splitPlan = decideSplit(
     await deps.orca.split({
-      terminal: request.terminal,
-      direction: request.direction,
+      terminal: target.terminal,
+      direction: target.direction,
       command: delegateCommand(request),
     })
   );

@@ -6,8 +6,11 @@ import type {
   ListTerminalsResult,
   Orca,
   OrcaError,
+  PaneNode,
+  SplitDirection,
   SplitRequest,
   SplitResult,
+  TabLayout,
   TerminalHandle,
   TerminalInfo,
 } from "./types.ts";
@@ -110,6 +113,56 @@ function readTerminals(result: unknown): readonly TerminalInfo[] | null {
   return terminals;
 }
 
+function asDirection(value: unknown): SplitDirection | null {
+  return value === "horizontal" || value === "vertical" ? value : null;
+}
+
+/** Any node the CLI did not answer with in full discards the whole tab tree. */
+function readPaneNode(value: unknown): PaneNode | null {
+  const record = asRecord(value);
+  if (record === null) return null;
+  if (record.type === "terminal") {
+    const handle = asHandle(record.handle);
+    return handle === null ? null : { type: "terminal", handle };
+  }
+  if (record.type !== "pane-split") return null;
+  const direction = asDirection(record.direction);
+  const first = readPaneNode(record.first);
+  const second = readPaneNode(record.second);
+  if (direction === null || first === null || second === null) return null;
+  return { type: "pane-split", direction, first, second };
+}
+
+/**
+ * Tabs sit at an unknown depth inside `root`, next to or below groups, so the
+ * walk looks for the `tabId` + `panes` pair anywhere in the layout object.
+ */
+function collectTabLayouts(value: unknown, found: Map<string, TabLayout>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) collectTabLayouts(item, found);
+    return;
+  }
+  const record = asRecord(value);
+  if (record === null) return;
+  const tabId = asHandle(record.tabId);
+  if (tabId !== null && record.panes !== undefined) {
+    const panes = readPaneNode(record.panes);
+    if (panes !== null && !found.has(tabId)) found.set(tabId, { tabId, panes });
+    return;
+  }
+  for (const child of Object.values(record)) collectTabLayouts(child, found);
+}
+
+/** A layout the CLI could not be read from is no tree, never a list failure. */
+function readLayouts(result: unknown): readonly TabLayout[] {
+  const holder = asRecord(result);
+  const rows = holder === null ? null : holder.visualLayouts;
+  if (!Array.isArray(rows)) return [];
+  const found = new Map<string, TabLayout>();
+  for (const row of rows) collectTabLayouts(row, found);
+  return [...found.values()];
+}
+
 /**
  * The real Orca CLI. Every method shells out with `--json` and converts a
  * non-zero exit that carries a JSON error body into a result value, because
@@ -118,14 +171,19 @@ function readTerminals(result: unknown): readonly TerminalInfo[] | null {
  */
 export class CliOrca implements Orca {
   async listTerminals(): Promise<ListTerminalsResult> {
-    const run = await runCli(["terminal", "list", "--json"]);
+    const run = await runCli([
+      "terminal",
+      "list",
+      "--include-visual-layouts",
+      "--json",
+    ]);
     const envelope = parseEnvelope(run);
     if (run.exitCode !== 0 || envelope?.ok !== true)
       return { ok: false, error: failureOf(run, envelope) };
     const terminals = readTerminals(envelope.result);
     if (terminals === null)
       return { ok: false, error: unreadable(run) };
-    return { ok: true, terminals };
+    return { ok: true, terminals, layouts: readLayouts(envelope.result) };
   }
 
   async split(request: SplitRequest): Promise<SplitResult> {

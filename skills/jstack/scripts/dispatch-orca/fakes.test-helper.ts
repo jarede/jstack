@@ -7,6 +7,7 @@ import type {
   OrcaError,
   SplitRequest,
   SplitResult,
+  TabLayout,
   TerminalHandle,
   TerminalInfo,
 } from "./types.ts";
@@ -17,6 +18,8 @@ export interface FakeOrcaOptions {
    * repeats forever, so a test only scripts the transitions it cares about.
    */
   readonly listScript?: readonly (readonly TerminalInfo[])[];
+  /** Pane trees served with every list; a tab with no entry reads as no tree. */
+  readonly layouts?: readonly TabLayout[];
   readonly splitResult?: SplitResult;
 }
 
@@ -51,7 +54,11 @@ export function fakeOrca(options: FakeOrcaOptions = {}): FakeOrca {
     options.splitResult ?? orcaError("invalid_argument", "nothing scripted");
   const next = (): ListTerminalsResult => {
     const index = Math.min(calls.filter((call) => call === "listTerminals").length - 1, script.length - 1);
-    return { ok: true, terminals: script[Math.max(index, 0)] ?? [] };
+    return {
+      ok: true,
+      terminals: script[Math.max(index, 0)] ?? [],
+      layouts: options.layouts ?? [],
+    };
   };
   return {
     calls,

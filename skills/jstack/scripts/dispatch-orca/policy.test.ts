@@ -9,6 +9,7 @@ import {
   exitPathFor,
   liveHandle,
   newHandlesInTab,
+  planPaneSplit,
   planStart,
   readExitStatus,
   readStateFile,
@@ -20,7 +21,12 @@ import {
   writeStateFile,
 } from "./policy.ts";
 import { fakeFs, terminal } from "./fakes.test-helper.ts";
-import type { DispatchRequest } from "./types.ts";
+import type {
+  DispatchRequest,
+  PaneNode,
+  SplitDirection,
+  TerminalHandle,
+} from "./types.ts";
 
 const request: DispatchRequest = {
   name: "d1",
@@ -29,7 +35,6 @@ const request: DispatchRequest = {
   brief: "/repo/.jstack/runs/d1.brief.md",
   report: "/repo/.jstack/runs/d1.report.md",
   terminal: "term_caller",
-  direction: "horizontal",
   timeoutMinutes: 45,
   recoverSeconds: 60,
 };
@@ -86,6 +91,7 @@ describe("planStart", () => {
   const listed = {
     ok: true as const,
     terminals: [terminal("term_caller"), terminal("term_x")],
+    layouts: [],
   };
 
   it("short-circuits on a report that already landed", () => {
@@ -122,7 +128,7 @@ describe("planStart", () => {
 
 describe("liveHandle", () => {
   it("only trusts a successful list", () => {
-    const listed = { ok: true as const, terminals: [terminal("term_x")] };
+    const listed = { ok: true as const, terminals: [terminal("term_x")], layouts: [] };
     expect(liveHandle(listed, "term_x")).toBe("term_x");
     expect(liveHandle(listed, "term_y")).toBeNull();
   });
@@ -158,6 +164,109 @@ describe("tab snapshot", () => {
     const snapshot = tabHandles(rows, "tab-1");
     const after = [...rows, terminal("term_other_tab", "tab-2")];
     expect(newHandlesInTab(after, "tab-1", snapshot)).toEqual([]);
+  });
+});
+
+describe("planPaneSplit", () => {
+  const coordinator = "term_COORD";
+
+  const pane = (handle: TerminalHandle): PaneNode => ({
+    type: "terminal",
+    handle,
+  });
+
+  const splitNode = (
+    direction: SplitDirection,
+    first: PaneNode,
+    second: PaneNode
+  ): PaneNode => ({ type: "pane-split", direction, first, second });
+
+  const splitLeaf = (
+    tree: PaneNode,
+    target: { readonly terminal: TerminalHandle; readonly direction: SplitDirection },
+    handle: TerminalHandle
+  ): PaneNode => {
+    if (tree.type === "terminal")
+      return tree.handle === target.terminal
+        ? splitNode(target.direction, tree, pane(handle))
+        : tree;
+    return {
+      ...tree,
+      first: splitLeaf(tree.first, target, handle),
+      second: splitLeaf(tree.second, target, handle),
+    };
+  };
+
+  it("grows a 2x2 grid out of the coordinator alone", () => {
+    let tree: PaneNode = pane(coordinator);
+    const targets = ["D1", "D2", "D3", "D4"].map((name) => {
+      const target = planPaneSplit(tree, coordinator);
+      tree = splitLeaf(tree, target, `term_${name}`);
+      return target;
+    });
+    expect(targets).toEqual([
+      { terminal: coordinator, direction: "horizontal" },
+      { terminal: "term_D1", direction: "vertical" },
+      { terminal: "term_D1", direction: "horizontal" },
+      { terminal: "term_D2", direction: "horizontal" },
+    ]);
+    expect(tree).toEqual(
+      splitNode(
+        "horizontal",
+        pane(coordinator),
+        splitNode(
+          "vertical",
+          splitNode("horizontal", pane("term_D1"), pane("term_D3")),
+          splitNode("horizontal", pane("term_D2"), pane("term_D4"))
+        )
+      )
+    );
+  });
+
+  it("splits the coordinator horizontally while it is the only pane", () => {
+    expect(planPaneSplit(pane(coordinator), coordinator)).toEqual({
+      terminal: coordinator,
+      direction: "horizontal",
+    });
+  });
+
+  it("takes the shallowest delegate, first in tree order on a tie", () => {
+    const grid = splitNode(
+      "horizontal",
+      splitNode(
+        "horizontal",
+        pane(coordinator),
+        splitNode("vertical", pane("term_D1"), pane("term_D2"))
+      ),
+      splitNode("vertical", pane("term_D3"), pane("term_D4"))
+    );
+    expect(planPaneSplit(grid, coordinator)).toEqual({
+      terminal: "term_D3",
+      direction: "horizontal",
+    });
+  });
+
+  it("falls back to the coordinator when there is no readable tree", () => {
+    expect(planPaneSplit(null, coordinator)).toEqual({
+      terminal: coordinator,
+      direction: "horizontal",
+    });
+  });
+
+  it("falls back to the coordinator when it is not in the tree", () => {
+    const strangers = splitNode("vertical", pane("term_D1"), pane("term_D2"));
+    expect(planPaneSplit(strangers, coordinator)).toEqual({
+      terminal: coordinator,
+      direction: "horizontal",
+    });
+  });
+
+  it("crosses the axis of an isolated delegate's horizontal parent", () => {
+    const pair = splitNode("horizontal", pane(coordinator), pane("term_D1"));
+    expect(planPaneSplit(pair, coordinator)).toEqual({
+      terminal: "term_D1",
+      direction: "vertical",
+    });
   });
 });
 

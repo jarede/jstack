@@ -17,6 +17,26 @@ export interface TerminalInfo {
   readonly tabId: string;
 }
 
+/**
+ * A tab's pane tree, as `orca terminal list --include-visual-layouts --json`
+ * reports it. The tree keeps Orca's own vocabulary: `horizontal` puts `first`
+ * above `second` and `vertical` puts `first` to the left of `second`, even
+ * though the CLI help says the opposite.
+ */
+export type PaneNode =
+  | { readonly type: "terminal"; readonly handle: TerminalHandle }
+  | {
+      readonly type: "pane-split";
+      readonly direction: SplitDirection;
+      readonly first: PaneNode;
+      readonly second: PaneNode;
+    };
+
+export interface TabLayout {
+  readonly tabId: string;
+  readonly panes: PaneNode;
+}
+
 /** `orca ... --json` failure body: `error.code` and `error.message`. */
 export interface OrcaError {
   readonly code: string;
@@ -24,7 +44,12 @@ export interface OrcaError {
 }
 
 export type ListTerminalsResult =
-  | { readonly ok: true; readonly terminals: readonly TerminalInfo[] }
+  | {
+      readonly ok: true;
+      readonly terminals: readonly TerminalInfo[];
+      /** Tabs whose visual layout could be read; a missing tab reads as no tree. */
+      readonly layouts: readonly TabLayout[];
+    }
   | { readonly ok: false; readonly error: OrcaError };
 
 export interface SplitRequest {
@@ -135,7 +160,6 @@ export interface DispatchRequest {
   readonly brief: string;
   readonly report: string;
   readonly terminal: TerminalHandle;
-  readonly direction: SplitDirection;
   readonly timeoutMinutes: number;
   readonly recoverSeconds: number;
 }
