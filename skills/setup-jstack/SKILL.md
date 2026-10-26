@@ -74,3 +74,7 @@ Tell the operator the file was written and that it applies from the next skill r
 ### 8. Offer a verification skill (optional)
 
 Check whether the current project has a way to drive the real app for proof (a `verify-*` skill under `.claude/skills/`, or an existing harness). If not, offer once to generate one with the **create-verification-skill** skill. On yes, read `~/.claude/skills/create-verification-skill/SKILL.md` and follow it. On no, move on without pushing.
+
+### 9. Offer a formal verification skill (optional)
+
+Check whether the current project already has a formal verification skill (a project skill under `.claude/skills/` that runs a model checker, a prover, or another verifier against the code). If not, offer once to generate one with the **create-formal-verification-skill** skill, so agents can prove a key property of the code holds in every case in scope, not only the cases tests reach. On yes, read `~/.claude/skills/create-formal-verification-skill/SKILL.md` and follow it. On no, move on without pushing.
