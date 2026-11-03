@@ -21,7 +21,7 @@ A check can be both updated and bug: the update makes the verification describe 
 
 ## Edit scope
 
-Edit only the verification: models, harnesses, property files, and the verify skill itself. Under jstack, an `opencode:` delegate edits the models, harnesses, and scripts per the jstack skill's **Implementation never runs on Claude**, and you brief and review. Never edit product code during a run, unless the user asks you to. When a property fails on the current code, do not weaken the property or the model to make it pass. Report the failure.
+Edit only the verification: models, harnesses, property files, and the verify skill itself. Under jstack, a code delegate edits the models, harnesses, and scripts per the jstack skill's **Implementation runs on a code delegate**, and you brief and review. Never edit product code during a run, unless the user asks you to. When a property fails on the current code, do not weaken the property or the model to make it pass. Report the failure.
 
 ## Pass
 

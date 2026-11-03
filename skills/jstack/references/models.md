@@ -38,7 +38,7 @@ The defaults split work by model strength, as pstack does. Code delegates go to 
 | `architect runners` | **architect** runners (list) | `claude:opus, opencode:opencode-go/grok-4.7` |
 | `interrogate reviewers` | **interrogate** reviewers (list) | `claude:opus, opencode:opencode-go/grok-4.7` |
 
-Code lines (`feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks`, `arena runners`, `swarm workers`) take only `opencode:` values. Claude is reserved for design, review, judgment, and prose. A `claude:` or `inherit` value on a code line is a configuration error: stop and ask the operator instead of dispatching it.
+Code lines (`feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks`, `arena runners`, `swarm workers`) take any value the operator chose: `opencode:`, `claude:`, or `inherit`. Whatever the value, the parent never writes the code itself; it briefs and reviews the delegate.
 
 ## Looking up a role
 
@@ -46,6 +46,8 @@ Code lines (`feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `harde
 2. No file, or no line for the role. Use the default above.
 3. The operator named models for this run ("review with kimi and glm"). Those replace the whole role for this run only. Do not edit the file. A short name becomes a full id only when exactly one line of `opencode2 models` contains it. Otherwise ask.
 4. Before the first `opencode:` dispatch in a session, confirm the id still exists with `opencode2 models | grep -x '<provider>/<model>'`, ignoring a `#variant` suffix. A missing id stops that role. Ask the operator once, covering every missing role, and suggest `/setup-jstack`. Never dispatch with only the valid part of a list unless the operator says so.
+
+Without opencode (neither `opencode2` nor `opencode` on `PATH`), skip every `opencode2 models` check above and resolve each `opencode:` value to `inherit`. Do not ask the operator to install opencode.
 
 When a skill's text says "the `<role>` line", it means this lookup.
 
@@ -65,4 +67,4 @@ It applies only when an `opencode:` dispatch fails because the model's limit ran
 4. No line, an empty line, or every entry exhausted: stop that role and ask the operator once, covering every exhausted model, and suggest `/setup-jstack`.
 5. Say which model replaced which in the reply that reports the role's result, so the operator sees the swap.
 
-Entries are `opencode:` values or `claude:<alias>`. A `claude:` entry on this line is the operator's explicit choice for the last-resort swap. It is the only place a Claude model can stand in for a code model. The code-line rule still holds for role lines: a `claude:` value on a code role line is a configuration error, and a Claude fallback never appears on a role line.
+Entries are `opencode:` values or `claude:<alias>`. A `claude:` entry on this line is the operator's explicit choice for the last-resort swap. Without opencode the chain never fires, since no `opencode:` dispatch runs.

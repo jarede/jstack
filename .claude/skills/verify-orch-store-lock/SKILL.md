@@ -66,6 +66,6 @@ Known liveness cost: a reaper that dies after claiming and before unlinking the 
 4. Never weaken an invariant, shrink the bounds, or turn off crashes to get a pass. If the promise changed on purpose, change the rule, and cite the evidence.
 5. Update the coverage record and the sync commit.
 
-The model, configs, and script are code. Under jstack, an `opencode:` delegate edits them per the jstack skill's **Implementation never runs on Claude**. You write the brief, review the result, and write this file.
+The model, configs, and script are code. Under jstack, a code delegate edits them per the jstack skill's **Implementation runs on a code delegate**. You write the brief, review the result, and write this file.
 
 For drift that built up across commits that skipped this skill, use `/maintain-formal-verification-skill`.
