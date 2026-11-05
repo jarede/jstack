@@ -20,14 +20,15 @@ uninstall:
 check:
     python3 scripts/check.py
 
-# Install the bun dependencies of the MR watcher and the orchestration CLI
+# Install the bun dependencies of the MR watcher and the orchestration CLI, and the statechart dev dependencies
 deps:
     cd {{tools}} && bun install
+    cd skills/statechart/scripts && npm install --no-save fast-check@4.5.3
 
 # Run the orch and watch-mr tests and the statechart tests
 test:
     cd {{tools}} && bun run test
-    node --test skills/statechart/scripts/test/statechart.test.mjs
+    cd skills/statechart/scripts && node --disable-warning=ExperimentalWarning --test test/*.test.ts
 
 # Typecheck watch-mr
 typecheck:
