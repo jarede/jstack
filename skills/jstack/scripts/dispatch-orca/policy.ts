@@ -28,6 +28,7 @@ export const EXIT_DISPATCH_FAILED = 3;
 export const EXIT_AMBIGUOUS = 4;
 export const EXIT_PANE_GONE = 5;
 export const EXIT_DELEGATE_EXITED = 6;
+export const EXIT_STALE_REPORT = 7;
 export const EXIT_STILL_RUNNING = 124;
 
 export function statusOf(state: TerminalState): DispatchStatus {
@@ -44,6 +45,8 @@ export function statusOf(state: TerminalState): DispatchStatus {
       return "exited-no-report";
     case "still-running":
       return "still-running";
+    case "stale-report":
+      return "stale-report";
     default: {
       const undecided: never = state;
       return undecided;
@@ -65,6 +68,8 @@ export function exitCodeOf(state: TerminalState): number {
       return EXIT_DELEGATE_EXITED;
     case "still-running":
       return EXIT_STILL_RUNNING;
+    case "stale-report":
+      return EXIT_STALE_REPORT;
     default: {
       const undecided: never = state;
       return undecided;
@@ -231,7 +236,8 @@ export function planPaneSplit(
 }
 
 export type StartPlan =
-  | { readonly kind: "done" }
+  | { readonly kind: "done"; readonly handle: TerminalHandle }
+  | { readonly kind: "stale-report" }
   | { readonly kind: "resume"; readonly handle: TerminalHandle }
   | { readonly kind: "dispatch" };
 
@@ -240,7 +246,10 @@ export function planStart(args: {
   readonly record: TerminalHandle | null;
   readonly listed: ListTerminalsResult;
 }): StartPlan {
-  if (args.reportPresent) return { kind: "done" };
+  if (args.reportPresent)
+    return args.record === null
+      ? { kind: "stale-report" }
+      : { kind: "done", handle: args.record };
   const running =
     args.record === null ? null : liveHandle(args.listed, args.record);
   return running === null
@@ -336,6 +345,17 @@ async function paneStillListed(
   return !listed.ok || listed.terminals.some((row) => row.handle === handle);
 }
 
+async function finishDone(
+  deps: DispatchDependencies,
+  request: DispatchRequest,
+  handle: TerminalHandle
+): Promise<TerminalState> {
+  await deps.orca.close({ terminal: handle });
+  deps.fs.removeFile(statePathFor(request));
+  deps.fs.removeFile(exitPathFor(request));
+  return { kind: "done", handle };
+}
+
 /**
  * The wait signal is the report file. The pane shell never exits after the
  * delegate finishes, so `orca terminal wait --for exit` would answer "still
@@ -349,7 +369,6 @@ async function waitForReport(
   inflight: InFlightState
 ): Promise<TerminalState> {
   const handle = inflight.handle;
-  const statePath = statePathFor(request);
   const exitPath = exitPathFor(request);
   const deadline = deps.clock.now() + request.timeoutMinutes * 60_000;
   while (true) {
@@ -361,10 +380,7 @@ async function waitForReport(
       deadlineReached: deps.clock.now() >= deadline,
     });
     if (plan.kind === "done") {
-      await deps.orca.close({ terminal: handle });
-      deps.fs.removeFile(statePath);
-      deps.fs.removeFile(exitPath);
-      return { kind: "done", handle };
+      return finishDone(deps, request, handle);
     }
     if (plan.kind === "exited")
       return { kind: "exited", handle, exitStatus: exitStatus ?? 0 };
@@ -428,25 +444,27 @@ async function recoverHandle(
 
 /**
  * The rule this script exists to enforce: one unit, one pane, ever. A report
- * short-circuits, a live recorded handle resumes the wait instead of splitting
- * again, and a split that does not answer is recovered from the terminal list
- * before it is ever called a failure.
+ * paired with a state record means the delegated unit finished and is closed;
+ * a report with no record was left by something else and is refused, not
+ * deleted. A live recorded handle resumes the wait instead of splitting again,
+ * and a split that does not answer is recovered from the terminal list before
+ * it is ever called a failure.
  */
 export async function dispatch(
   deps: DispatchDependencies,
   request: DispatchRequest
 ): Promise<TerminalState> {
-  if (reportReady(deps.fs, request.report))
-    return { kind: "done", handle: null };
-
   const record = readStateFile(deps.fs, statePathFor(request));
   const listed = await deps.orca.listTerminals();
   const plan = planStart({
-    reportPresent: false,
+    reportPresent: reportReady(deps.fs, request.report),
     record: record?.handle ?? null,
     listed,
   });
-  if (plan.kind === "done") return { kind: "done", handle: null };
+  if (plan.kind === "stale-report")
+    return { kind: "stale-report", handle: null };
+  if (plan.kind === "done")
+    return finishDone(deps, request, plan.handle);
   if (plan.kind === "resume")
     return waitForReport(deps, request, { kind: "running", handle: plan.handle });
 

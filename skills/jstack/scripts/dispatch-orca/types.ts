@@ -134,6 +134,7 @@ export type DispatchState =
     }
   | { readonly kind: "pane-gone"; readonly handle: TerminalHandle }
   | { readonly kind: "still-running"; readonly handle: TerminalHandle }
+  | { readonly kind: "stale-report"; readonly handle: null }
   | {
       readonly kind: "exited";
       readonly handle: TerminalHandle;
@@ -150,6 +151,7 @@ export type DispatchStatus =
   | "ambiguous"
   | "pane-gone-no-report"
   | "still-running"
+  | "stale-report"
   | "exited-no-report";
 
 /** Everything `dispatch()` needs. The state file path is derived, not passed. */

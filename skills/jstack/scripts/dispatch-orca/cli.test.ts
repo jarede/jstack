@@ -206,6 +206,33 @@ describe("renderResult", () => {
     expect(line).toContain("none was adopted");
   });
 
+  it("names the stale report and tells the coordinator to move it or rename", () => {
+    const line = renderResult(
+      { kind: "stale-report", handle: null },
+      { request, json: false }
+    );
+    expect(line.startsWith("stale-report:")).toBe(true);
+    expect(line).toContain("/repo/.jstack/runs/d1.report.md");
+    expect(line).toContain("move the report aside or pick another --name/--report");
+  });
+
+  it("carries the stale report path and message in JSON", () => {
+    const line = renderResult(
+      { kind: "stale-report", handle: null },
+      { request, json: true }
+    );
+    expect(JSON.parse(line)).toEqual({
+      status: "stale-report",
+      handle: null,
+      message:
+        "/repo/.jstack/runs/d1.report.md already exists and no dispatch state " +
+        "records a delegate for it; move the report aside or pick another " +
+        "--name/--report",
+      report: "/repo/.jstack/runs/d1.report.md",
+      exitCode: 7,
+    });
+  });
+
   it("prints one line for a usage error, prose or JSON", () => {
     expect(
       renderUsage("missing --name", { report: "", json: false })

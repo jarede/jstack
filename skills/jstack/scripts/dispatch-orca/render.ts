@@ -15,6 +15,13 @@ export interface RenderContext {
   readonly json: boolean;
 }
 
+function staleReportMessage(request: DispatchRequest): string {
+  return (
+    `${request.report} already exists and no dispatch state records a delegate for it; ` +
+    "move the report aside or pick another --name/--report"
+  );
+}
+
 /**
  * Detail lines carry the operator's next move. Every failure state says whether
  * a retry can start a second delegate, because that is the mistake this tool
@@ -24,6 +31,8 @@ function detail(state: TerminalState, request: DispatchRequest): string {
   switch (state.kind) {
     case "done":
       return "";
+    case "stale-report":
+      return `: ${staleReportMessage(request)}`;
     case "dispatch-failed": {
       const tab = state.tabId === null ? "the caller's tab" : `tab ${state.tabId}`;
       const cause =
@@ -73,6 +82,9 @@ export function renderResult(
       status: statusOf(state),
       handle: handleOf(state),
       ...(state.kind === "exited" ? { exitStatus: state.exitStatus } : {}),
+      ...(state.kind === "stale-report"
+        ? { message: staleReportMessage(context.request) }
+        : {}),
       report: context.request.report,
       exitCode: exitCodeOf(state),
     });

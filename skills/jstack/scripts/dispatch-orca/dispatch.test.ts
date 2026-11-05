@@ -99,23 +99,46 @@ function runtime(built: Harness): { runtime: CliRuntime; stdout: string[] } {
 }
 
 describe("step 1: the report already landed", () => {
-  it("prints done and never splits", async () => {
+  it("refuses a report with no state record, exits 7, and leaves it untouched", async () => {
+    const reportBody = "# d1\n";
     const built = harness({
-      seed: { [report]: "# d1\n" },
+      seed: { [report]: reportBody },
       listScript: [[caller]],
       splitResult: orcaError("invalid_argument", "must not be called"),
+    });
+    const { runtime: active, stdout } = runtime(built);
+    expect(await main(argv, active)).toBe(7);
+    expect(stdout[0]).toStartWith("stale-report:");
+    expect(stdout[0]).toContain(report);
+    expect(stdout[0]).toContain(
+      "move the report aside or pick another --name/--report"
+    );
+    expect(built.orca.calls).not.toContain("split");
+    expect(built.orca.closes).toEqual([]);
+    expect(built.fs.files.get(report)).toBe(reportBody);
+    expect(built.fs.files.has(statePath)).toBe(false);
+  });
+
+  it("closes the pane and clears the state and exit files when a record exists", async () => {
+    const built = harness({
+      seed: {
+        [report]: "# d1\n",
+        [statePath]: JSON.stringify({
+          handle: "term_delegate",
+          startedAt: "2026-07-26T00:00:00.000Z",
+        }),
+        [exitPath]: "0",
+      },
+      listScript: [[caller, sibling, delegate]],
     });
     const { runtime: active, stdout } = runtime(built);
     expect(await main(argv, active)).toBe(0);
     expect(stdout).toEqual(["done\n"]);
     expect(built.orca.calls).not.toContain("split");
-  });
-
-  it("does not even ask the terminal list", async () => {
-    const built = harness({ seed: { [report]: "# d1\n" } });
-    const { runtime: active } = runtime(built);
-    await main(argv, active);
-    expect(built.orca.calls).toEqual([]);
+    expect(built.orca.closes).toEqual(["term_delegate"]);
+    expect(built.fs.files.has(statePath)).toBe(false);
+    expect(built.fs.files.has(exitPath)).toBe(false);
+    expect(built.fs.files.get(report)).toBe("# d1\n");
   });
 });
 

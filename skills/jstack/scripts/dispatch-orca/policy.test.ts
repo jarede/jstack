@@ -94,10 +94,16 @@ describe("planStart", () => {
     layouts: [],
   };
 
-  it("short-circuits on a report that already landed", () => {
+  it("closes a report that pairs with a state record", () => {
     expect(
       planStart({ reportPresent: true, record: "term_x", listed })
-    ).toEqual({ kind: "done" });
+    ).toEqual({ kind: "done", handle: "term_x" });
+  });
+
+  it("refuses a report no state record accounts for", () => {
+    expect(
+      planStart({ reportPresent: true, record: null, listed })
+    ).toEqual({ kind: "stale-report" });
   });
 
   it("resumes a recorded handle that a fresh list still shows", () => {
@@ -407,6 +413,7 @@ describe("exit codes", () => {
         6,
       ],
       [{ kind: "still-running", handle: "term_x" }, "still-running", 124],
+      [{ kind: "stale-report", handle: null }, "stale-report", 7],
     ] as const;
     for (const [state, status, exitCode] of table) {
       expect(statusOf(state)).toBe(status);
