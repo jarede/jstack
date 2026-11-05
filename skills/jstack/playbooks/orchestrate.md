@@ -2,17 +2,25 @@
 
 **You run the program, never the code. Decide which agent does each piece of work, then check what each one produces.** For a standing project handed to one coordinator chat: multi-day, many stacked MRs, dozens to hundreds of subagents, few human turns. One task driven to a predicate is Autonomous run. One ambitious run that needs a bespoke workflow is figure-it-out. Work that one agent could finish inside the session's budget is not a program.
 
-Pick the runtime once, from **Which terminal host launched me?** in `../references/harness.md`. Under Orca, run the program on Orca's orchestration per `../references/orca.md`, with the sections below. In any other host, skip to **Outside Orca**, which keeps the `orch` CLI.
+Pick the runtime once, from **Which terminal host launched me?** in `../references/harness.md`. Under Orca, run the program on Orca's orchestration per `../references/orca.md`, with the **Under Orca** section and nothing from **Outside Orca**. In any other host, skip to **Outside Orca**, which keeps the `orch` CLI.
 
 #### Under Orca
 
 Run it with your own tools and Orca. Orca holds the Run, the tasks and their dependencies, each worker's liveness, the mail, and the decision gates, and it wakes you in chat when a worker reports or asks. Keep the program's standing orders, decisions, and per-unit notes in `.jstack/orchestrate/<project-slug>/notes.md`, and the Run in `orca.json` next to it, per `orca.md`. Add `.jstack/` to `.git/info/exclude` first. Call no `orch` command, run no polling loop, and never relay messages or status between agents.
 
+##### Steps
+
+1. **Frame.** State the done predicate as something countable, and quantify the units, the expected MRs, and the wall-clock budget. If one agent could finish inside that budget, run Autonomous run instead. Write the predicate and the standing orders at the top of `notes.md`.
+2. **Start.** Create the Run, `orca.json`, and the tasks with their dependencies, per **Start a program** in `orca.md`. Open the trail via the show-me-your-work skill.
+3. **Pilot.** Take one unit through kickoff, owner, verifier, and merge, per Topology, before you fan out.
+4. **Run.** Start what is ready, end your turn, and act on each wake per **When Orca wakes you** in `orca.md`. Keep `frontierMr` in `orca.json` on the lowest unmerged MR.
+5. **Close.** Account for every task in `task-list` as completed, replaced, or dropped with its reason in `notes.md`. Confirm the predicate on the real artifact and each landed MR's verdict at its current head. Leave the Run and `notes.md` in place as the postmortem.
+
 ##### Topology
 
 - **One owner per MR.** The owner is the only writer of its branch and carries the MR from build to merge. Only the owner pushes, rebases, or retargets it. Closing or retargeting a base MR orphans every MR above it, so the owner does that only on your call. You never author or edit code. Conflicted merges, chain rebases, and fixes go to owners.
 - **A fresh worker for each independent task.** Its kickoff carries everything it needs, including each upstream report it depends on, pasted in full. Workers can't see their siblings. Start each one on its role's model with the launch flags in `orca.md`.
-- **A sub-coordinator only when one area has many parallel workers.** It owns that area's workers and kickoffs and sends you one rollup, never raw worker reports. Stop at three levels: you, sub-coordinators, and workers. Keep about ten workers in flight per coordinator, and start the next one as each finishes instead of waiting on a whole batch.
+- **No sub-coordinators by default.** Orca allows one level of workers, and a worker that tries to start its own is refused with `nested_worker_depth_exceeded`. Keep about ten workers in flight, and start the next one as each finishes instead of waiting on a whole batch. When one area needs more than you can supervise, make it its own program with its own coordinator chat and Run, or ask the operator to raise the nesting depth in Orca's Settings, Orchestration, which is an Orca-wide change.
 - **Reuse a worker only when new work needs its built state,** such as its checkout, uncommitted changes, or a running process. Then `send` it the follow-up. Never message one to check on it. Read `worker-list` and `worker-read` instead.
 - **Each MR gets a verifier that isn't its author,** on a different model family. The owner merges only on that verifier's pass at the current head.
 - **Start with one unit.** Take it through kickoff, owner, verifier, and merge before you fan out, so a flaw in the kickoff costs one agent instead of fifty. On near-identical cheap units, the first unit is that test.
@@ -23,7 +31,7 @@ Run it with your own tools and Orca. Orca holds the Run, the tasks and their dep
 - **Read the diff or the artifact, not only the worker's summary.** A green pipeline is an input to a verdict, not a verdict. Behavioral work needs more than a type check. A verdict covers one head SHA, so a new push needs a new verdict. Read a sample of each sub-coordinator's kickoffs while its workers run, and fix its instructions when one fails.
 - **Send back work that drifts from scope or grows past what was asked.** Keep only the fixes that block the program, and park the rest as follow-ups in `notes.md`.
 - **Check an MR's live state before you report on it,** with `glab mr view` and `glab ci status` (or `gh` for a `github.com` remote), not the worker's last report. Account for every worker you started as done, replaced, or absorbed into another worker's scope.
-- **Stop or replace a worker that stalls or loops.** Judge it by its pushes and MR activity, not its status text. Retry by cause: a smaller scope after a context or memory limit, the same kickoff after a dropped connection, and a different model after a tool error. After two retries, drop the unit and replan around it. When a stopped worker returns late, check its result against the MR's current state, and hand any unique findings to a fresh worker.
+- **Stop or replace a worker that stalls or loops.** Judge it by its pushes and MR activity, not its status text. Retry by cause: a smaller scope after a context or memory limit, the same kickoff after a dropped connection, and a different model after a tool error. A smaller scope or a dropped unit is a replacement task, per **Liveness and recovery** in `orca.md`. After two retries, drop the unit and replan around it. When a stopped worker returns late, check its result against the MR's current state, and hand any unique findings to a fresh worker.
 - **Ask the operator only for a real decision or a blocker,** such as an irreversible action, a product or preference call that no experiment settles, or a dead end that survived a replan. Make each one an Orca gate per `orca.md` and name it in your next report. Rebase mechanics, retries, pipeline flakes, review triage, and "should I keep going" never reach the operator.
 
 **Reply under Orca:** what landed against the goal, each MR's live state and verdict with its link, every open gate with its question and options, what was dropped and why, and the decisions waiting on the operator.
