@@ -1,6 +1,42 @@
 ### Orchestrate
 
-**You own the program, never the code. Author briefs, drain the queue, keep the frontier green, decide.** For a whole project handed to one standing coordinator chat: multi-day, many stacked MRs, dozens to hundreds of subagents, the human checking in twice a day instead of every five minutes. One task driven to a predicate is Autonomous run. One ambitious run needing a bespoke workflow is figure-it-out. Route here when the work outlives any single agent. Work one agent could finish inside the session's budget is not a program.
+**You run the program, never the code. Decide which agent does each piece of work, then check what each one produces.** For a standing project handed to one coordinator chat: multi-day, many stacked MRs, dozens to hundreds of subagents, few human turns. One task driven to a predicate is Autonomous run. One ambitious run that needs a bespoke workflow is figure-it-out. Work that one agent could finish inside the session's budget is not a program.
+
+Pick the runtime once, from **Which terminal host launched me?** in `../references/harness.md`. Under Orca, run the program on Orca's orchestration per `../references/orca.md`, with the **Under Orca** section and nothing from **Outside Orca**. In any other host, skip to **Outside Orca**, which keeps the `orch` CLI.
+
+#### Under Orca
+
+Run it with your own tools and Orca. Orca holds the Run, the tasks and their dependencies, each worker's liveness, the mail, and the decision gates, and it wakes you in chat when a worker reports or asks. Keep the program's standing orders, decisions, and per-unit notes in `.jstack/orchestrate/<project-slug>/notes.md`, and the Run in `orca.json` next to it, per `orca.md`. Add `.jstack/` to `.git/info/exclude` first. Call no `orch` command, run no polling loop, and never relay messages or status between agents.
+
+##### Steps
+
+1. **Frame.** State the done predicate as something countable, and quantify the units, the expected MRs, and the wall-clock budget. If one agent could finish inside that budget, run Autonomous run instead. Write the predicate and the standing orders at the top of `notes.md`.
+2. **Start.** Create the Run, `orca.json`, and the tasks with their dependencies, per **Start a program** in `orca.md`. Open the trail via the show-me-your-work skill.
+3. **Pilot.** Take one unit through kickoff, owner, verifier, and merge, per Topology, before you fan out.
+4. **Run.** Start what is ready, end your turn, and act on each wake per **When Orca wakes you** in `orca.md`. Keep `frontierMr` in `orca.json` on the lowest unmerged MR.
+5. **Close.** Account for every task in `task-list` as completed, replaced, or dropped with its reason in `notes.md`. Confirm the predicate on the real artifact and each landed MR's verdict at its current head. Leave the Run and `notes.md` in place as the postmortem.
+
+##### Topology
+
+- **One owner per MR.** The owner is the only writer of its branch and carries the MR from build to merge. Only the owner pushes, rebases, or retargets it. Closing or retargeting a base MR orphans every MR above it, so the owner does that only on your call. You never author or edit code. Conflicted merges, chain rebases, and fixes go to owners.
+- **A fresh worker for each independent task.** Its kickoff carries everything it needs, including each upstream report it depends on, pasted in full. Workers can't see their siblings. Start each one on its role's model with the launch flags in `orca.md`.
+- **No sub-coordinators by default.** Orca allows one level of workers, and a worker that tries to start its own is refused with `nested_worker_depth_exceeded`. Keep about ten workers in flight, and start the next one as each finishes instead of waiting on a whole batch. When one area needs more than you can supervise, make it its own program with its own coordinator chat and Run, or ask the operator to raise the nesting depth in Orca's Settings, Orchestration, which is an Orca-wide change.
+- **Reuse a worker only when new work needs its built state,** such as its checkout, uncommitted changes, or a running process. Then `send` it the follow-up. Never message one to check on it. Read `worker-list` and `worker-read` instead.
+- **Each MR gets a verifier that isn't its author,** on a different model family. The owner merges only on that verifier's pass at the current head.
+- **Start with one unit.** Take it through kickoff, owner, verifier, and merge before you fan out, so a flaw in the kickoff costs one agent instead of fifty. On near-identical cheap units, the first unit is that test.
+
+##### Supervision
+
+- **Each kickoff names the evidence that proves the work is done,** such as a command and its expected output, a `verify-*` skill check, or an artifact. It also names the goal, the paths the worker may and may not write, and the actions it must not take. If you can't name the evidence, the unit isn't scoped yet. Write it to a file and pass it to `task-create --spec-file`.
+- **Read the diff or the artifact, not only the worker's summary.** A green pipeline is an input to a verdict, not a verdict. Behavioral work needs more than a type check. A verdict covers one head SHA, so a new push needs a new verdict. Read a sample of each sub-coordinator's kickoffs while its workers run, and fix its instructions when one fails.
+- **Send back work that drifts from scope or grows past what was asked.** Keep only the fixes that block the program, and park the rest as follow-ups in `notes.md`.
+- **Check an MR's live state before you report on it,** with `glab mr view` and `glab ci status` (or `gh` for a `github.com` remote), not the worker's last report. Account for every worker you started as done, replaced, or absorbed into another worker's scope.
+- **Stop or replace a worker that stalls or loops.** Judge it by its pushes and MR activity, not its status text. Retry by cause: a smaller scope after a context or memory limit, the same kickoff after a dropped connection, and a different model after a tool error. A smaller scope or a dropped unit is a replacement task, per **Liveness and recovery** in `orca.md`. After two retries, drop the unit and replan around it. When a stopped worker returns late, check its result against the MR's current state, and hand any unique findings to a fresh worker.
+- **Ask the operator only for a real decision or a blocker,** such as an irreversible action, a product or preference call that no experiment settles, or a dead end that survived a replan. Make each one an Orca gate per `orca.md` and name it in your next report. Rebase mechanics, retries, pipeline flakes, review triage, and "should I keep going" never reach the operator.
+
+**Reply under Orca:** what landed against the goal, each MR's live state and verdict with its link, every open gate with its question and options, what was dropped and why, and the decisions waiting on the operator.
+
+#### Outside Orca
 
 Ceremony must scale with the program. On cheap near-identical units, collapse it as each section directs.
 
@@ -10,7 +46,7 @@ Three rules carry the rest.
 - Every spawn and every resume carries the standing orders verbatim.
 - The brief is the product. A vague brief fails quietly, because a worker cannot ask you a question.
 
-#### Roles and placement
+##### Roles and placement
 
 - **Coordinator (this chat).** Local. Frames, authors briefs, drains the inbox, owns the operator report, makes judgment calls. It never authors or edits code. Conflicted merges, chain rebases, and code changes are always tasks. Mechanically landing a verified unit (fast-forward or clean cherry-pick of a worker's commit, then push) is bookkeeping the coordinator may do itself on repos where local git is cheap. Queueing finished work behind an idle stacker is how a deadline harvests nothing. The loop is agentic end to end. Agents are spawned, resumed, and drained through the harness tools in `../references/harness.md`. State reads and writes go through `scripts/orch/orch.ts` at drain points, one command in and one line out. The CLI never spawns, waits, or wakes anything.
 - **Sub-coordinator.** Always local, durable, one per track, and only when the program exceeds what one coordinator's drains can manage. A track the coordinator can drain itself needs no middle layer. Each nested layer re-pays a full orientation preamble, and a blocking sub-coordinator hides its children while the parent idles. Owns its track's units and boards, authors its workers' briefs, spawns its own workers and verifiers per `../references/harness.md` (nesting works to depth 3, and every nested spawn carries the full spawn contract). Rolls up aggregates at wave boundaries. Never forwards raw child reports. Cap in-flight children at what one drain can process, roughly ten, as a rolling window. Never as blocking batches, which cost the slowest child of every batch.
@@ -18,7 +54,7 @@ Three rules carry the rest.
 
 Depth stays at coordinator, track, worker. Author the track decomposition per project (build, landing, and verification are common cuts, not a required shape). Hard-coded swarm trees were tried and parked as too rigid.
 
-#### Store layout
+##### Store layout
 
 Create `.jstack/orchestrate/<project-slug>/` at the repository root. Every file has exactly one writer. Owners publish facts, readers aggregate at read time. Use `bun scripts/orch/orch.ts` for bookkeeping, written below as `orch`, while its canonical plain TSV and JSON stay readable without the CLI.
 
@@ -31,7 +67,7 @@ Create `.jstack/orchestrate/<project-slug>/` at the repository root. Every file 
 - `decisions.tsv` is the trail via the show-me-your-work skill.
 - `status.md` is derived from `units.tsv` and `ledger.tsv` at each drain, never hand-maintained. Regenerate it from the tables instead of narrating events into it.
 
-#### The brief
+##### The brief
 
 Your prompts to agents are your only product, and a sloppy brief compounds into slop across the whole tree. Every spawn carries all of it. A field you cannot fill is a unit you have not scoped yet.
 
@@ -56,7 +92,7 @@ A sub-coordinator brief adds its track boundary and unit list, its spawn budget 
 
 A dependency is a context relay, not just ordering. Undeclared upstream context makes the worker guess. Missing fields are a refuse-to-spawn condition. Audit one sampled worker brief per sub-coordinator per wave, concurrently with the wave it samples, never as a gate in front of it. A failing brief stops that track and fixes the sub-coordinator's instructions, not just the worker, because brief quality decays late in a run. Never resume-chain a brief. Respawn fresh with consolidated scope.
 
-#### Steps
+##### Steps
 
 1. **Frame.** State the done predicate as something countable ("all 126 units merged, each ledger-verified `unit-test-verified` or better"). Quantify scope: units, rough effort, expected stacks, and the wall-clock budget. If one agent could finish inside that budget, stop here and run Autonomous run instead. Collapsing must not depend on another document being present. It means do the work directly in this session, plain workers where they help, verification inline, landing as you go, and none of the store, register, or pilot machinery below. Schedule landing against the budget. By roughly 70% of it, stop spawning and land what is verified. Name the tracks per project. A contested decomposition or one-way door goes through the arena skill before the pilot. Present the framing once. Reversible prep proceeds without waiting.
 2. **Install the runtime.** Add `.jstack/` to `.git/info/exclude`, then run `orch init`. Open the trail via the show-me-your-work skill, write the standing orders before any spawn, and seed `frontier.json` from existing GitLab MRs with `orch frontier set --repo <repo-dir>`.
@@ -66,7 +102,7 @@ A dependency is a context relay, not just ordering. Undeclared upstream context 
 6. **Land.** Landing is continuous, never a terminal phase. Integration starts with the first verified unit and runs alongside the remaining waves. On heavy repos the stacker is a standing role from wave one, integrating as units verify. On repos where local git is cheap, the coordinator lands verified units itself per Roles. Keep the frontier green before upper-stack work. Stack safety governs. Advance `frontier.json` only on merge or reported new head SHAs.
 7. **Close.** Drain the final inbox, reconcile every spawned agent to a terminal row (done, abandoned, zombie-reconciled), confirm the predicate on the real artifact, confirm every landed MR has a verdict for its current head SHA, audit the trail per show-me-your-work including its cross-model review, encode recurring corrections into `preferences.md` or the brief template. Leave the store intact. It is the postmortem.
 
-#### Queue and drain
+##### Queue and drain
 
 - On a completion notification, run `orch inbox push <agent> <unit> <status> [--report PATH]` and return to what you were doing. Never deep-review inline. A completion that needs review becomes a verifier unit. Never review a diff inside a drain.
 - Drain in batches at four points: the end of a critical section, a track rollup, a frontier watcher wake (arm it per `../references/harness.md`, with a long heartbeat fallback), and before an operator report. Begin each batch with `orch inbox drain`. Arrivals during a drain wait for the next one.
@@ -75,7 +111,7 @@ A dependency is a context relay, not just ordering. Undeclared upstream context 
 - Account for every spawned child at its track's rollup: arrived, respawned, or its scope explicitly absorbed. Silently redoing a missing child's work hides both the wasted spend and the coverage gap its result existed to close.
 - A drain turn ends with the three lines from `orch status`: counts against the states, what changed, gates open. Detail lives in `status.md`. The full reply contract applies at checkpoints and close.
 
-#### Stack safety
+##### Stack safety
 
 - The frontier is a computed object, never narrative. Recompute `frontier.json` with `orch frontier set` after every merge and stack mutation. The ported command discovers the stack from GitLab MRs through `glab`. Store the ordered MR list, branch names, head SHAs, a generation number, and the lowest unmerged MR. Run the command from the repository that owns the stack.
 - Exactly one stacker per stack may mutate topology (chain rebases, force-pushes, target retargets, merges), serialized within its stack. Record the holder in the standing orders. Chain rebases use an isolated worktree. A local rebase at this scale takes the laptop down.
@@ -83,7 +119,7 @@ A dependency is a context relay, not just ordering. Undeclared upstream context 
 - MR closes and retargets go through the stacker only. Closing a base MR orphans every chain above it. Merges and stack surgery are units with briefs like any other.
 - One retro watcher follows merged MRs for reverts, post-merge CI breaks, and orphaned follow-ups.
 
-#### Verification
+##### Verification
 
 Scale verification to the unit. When VERIFY is a single cheap command, the worker runs it and reports the output, and the coordinator spot-checks receipts. A dedicated verifier agent (on a different model family than the worker) is for units whose verification is expensive, judgment-laden, or high-blast-radius. A verifier agent whose entire product would be rerunning one command is ceremony, not verification.
 
@@ -91,7 +127,7 @@ Write ledger rows with `orch ledger record`. Check the current MR and head SHA w
 
 A unit is not done until its output is externalized the moment it lands, never batched to the end of the run. A worker pushes its branch, a verifier writes its ledger row, receipts land in the store. Work that exists only on one VM when that VM dies was never done.
 
-#### Liveness and failure
+##### Liveness and failure
 
 - Never resume an agent to check on it. A resume restarts an idle agent. Probe read-only: the ledger, `units.tsv`, `glab`, pushed branches, and subagent status from the active harness. Transcript mtime is not liveness.
 - A silent death gets a synthetic postmortem row in the inbox (unit, failure mode, last evidence, options). Replan on evidence as it arrives. Never wait for full quiescence.
@@ -101,7 +137,7 @@ A unit is not done until its output is externalized the moment it lands, never b
 - Bound your own infra retries the same way you bound a child's. After a few consecutive tool aborts, stop retrying. Write a terminal handoff to durable state (what is done, where it lives, the exact command to resume) and end the run.
 - After a harness restart, check each subagent and worktree for live work before resuming. Re-read the standing orders and `units.tsv`, recompute the frontier, reattach active work by MR and branch rather than agent id, respawn one sub-coordinator per track from its stored brief plus current state, drain, resume. The dead session's store lock clears itself on the next write. `orch` replaces a lock whose holder pid is gone.
 
-#### Escalation
+##### Escalation
 
 Reaches the human, batched into the status page rather than per item: irreversible actions (force-push to shared branches, deploys, deletions, closing someone else's MR), genuine product or preference calls no experiment settles, a standing order that contradicts observed reality, a program-level dead end that survived a replan. Park each as a `gates.md` entry before asking, and route work around it.
 
@@ -109,4 +145,4 @@ Never reaches the human: frontier nudges, rebase mechanics, retries, CI flake tr
 
 Mid-run discoveries fix only what blocks the frontier. Everything else parks in follow-ups. At this fan-out a small scope leak multiplies into MRs nobody asked for.
 
-**Reply:** at checkpoints and close: the predicate and the count against it from `units.tsv` and `ledger.tsv`, tracks and what each landed, the frontier (MR list plus SHAs), verdicts summary, what was abandoned and why, gates awaiting the human (the only asks), the store path, and the trail path. Numbers from the tables, not narrative. Include MR links.
+**Reply outside Orca:** at checkpoints and close: the predicate and the count against it from `units.tsv` and `ledger.tsv`, tracks and what each landed, the frontier (MR list plus SHAs), verdicts summary, what was abandoned and why, gates awaiting the human (the only asks), the store path, and the trail path. Numbers from the tables, not narrative. Include MR links.
