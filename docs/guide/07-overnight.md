@@ -83,7 +83,7 @@ The contract above drives one task to one finish condition. Some nights hold mor
 /jstack autopilot these five changes, but don't merge. i'll land them in the morning.
 ```
 
-[Orchestrate](../../skills/jstack/playbooks/orchestrate.md) is for a program that outlives any single agent: multi-day, many stacked MRs, fleets of subagents under one standing coordinator chat. The coordinator authors briefs, collects what its subagents finish, keeps the lowest unmerged MR green, and never writes code itself. It's deliberately heavy machinery. If one agent could finish the work in a session, the playbook itself routes you back to the overnight contract above:
+[Orchestrate](../../skills/jstack/playbooks/orchestrate.md) is for a program that outlives any single agent: multi-day, many stacked MRs, fleets of subagents under one standing coordinator chat. The coordinator decides which agent does each piece of work, checks what each one produces, and never writes code itself. Inside Orca it runs the program on Orca's own orchestration, which wakes it in chat when a worker reports. Elsewhere it keeps its state with the bundled `orch` CLI. If one agent could finish the work in a session, the playbook itself routes you back to the overnight contract above:
 
 ```text
 /jstack orchestrate the store migration. own it until every package is converted and merged. i'll check in twice a day.
