@@ -1,12 +1,8 @@
 ### Autopilot-stack
 
-**You own the stack, never the landing. Hand the operator one linear stack of target-chained MRs to review and land.** **Autopilot-full** holds except for how verified work leaves. Each tick re-reads both playbooks from trunk, and this one wins where they differ.
+Run the Autopilot-full playbook, but do not merge.
 
-1. **Run Autopilot-full's owners, minus the landing.** Owners report STACK-READY in place of merge-ready. They never rebase onto another branch, trunk included, and never retarget, merge, close an MR, or arm auto-merge, because the root owns the chain's topology and the operator owns the landing. When an item depends on another, its owner branches from that item's branch, not from trunk.
-2. **Give the topology one writer.** Owners push only their own branches and report each tip and its intended parent. Only you rebase or retarget a link, because two writers on one chain undo each other. Append each clean MR in dependency order, with its target set to its parent's branch (`glab mr update <iid> --target-branch <parent-branch>`, or `gh` for a `github.com` remote). An owner takes your push as its new base and lease, and on a conflict resolves its own slice for you to push.
-3. **Absorb drift at the root.** Until landing starts, apply Autopilot-full step 5's test to each link and rebase the chain bottom-up where it calls for one. Then apply the patch-id rule link by link, since a link's base is its parent.
-4. **Deliver the chain, then keep your hands off it.** Each link carries its verdict in its MR. Once landing starts, nobody writes to the chain except the post-merge retarget that `playbooks/shipping.md` sanctions, because a second writer breaks a landing in flight. A mid-landing problem goes through you to the operator, and any fix waits for the operator's go.
+1. **In place of step 5, stop at verified.** Stop when each MR is verified and green at its current head, then hand the MRs to the operator. After the handoff, nobody pushes without the operator's go. Every loop tick prompt names this file, so each tick sees the no-merge rule.
+2. **Stack an MR only when it builds on another MR.** This is the one exception to step 3. Base the MR on the other MR's branch in place of trunk, per **Size and stacks** in `playbooks/opening-a-mr.md`. In place of step 2's rebase onto trunk, each MR rebases onto its parent MR's branch, and the stack root rebases onto trunk. A new head on the lower MR restacks the MRs above it, and an MR whose `git patch-id` the restack leaves unchanged keeps its verdict.
 
-**Choosing between the autopilots.** Autopilot-full when the MRs are independent and landing authority is granted. Autopilot-stack when the operator wants review before landing, the work is sequenced or coupled, or merge authority is withheld.
-
-**Reply:** catch the operator up per the **ketchup** skill, with links to the stack root and tip, a one-line verdict per link, and anything parked or excluded with the reason.
+**Reply:** list each MR with its verdict, in place of what merged.

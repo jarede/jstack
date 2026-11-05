@@ -33,7 +33,7 @@ The defaults split work by model strength, as pstack does. Code delegates go to 
 | `reflect tooling` | **reflect** tooling reviewer | `opencode:opencode-go/grok-4.7` |
 | `reflect judgment, divergent, synthesizer` | **reflect** judgment, divergent, and synthesizer | `claude:opus` |
 | `arena runners` | **arena** candidates (list) | `opencode:opencode-go/grok-4.7, opencode:opencode-go/deepseek-v4.1-flash` |
-| `arena cross-judge pool` | **arena** judge, one picked from a family that differs from the parent's | `claude:opus, opencode:opencode-go/grok-4.7` |
+| `arena cross-judge pool` | **arena** judge, tried in order, only entries from a family other than the parent's; skipped when none runs | `claude:opus, opencode:opencode-go/grok-4.7` |
 | `swarm workers` | **swarm** workers | `opencode:opencode-go/grok-4.7` |
 | `architect runners` | **architect** runners (list) | `claude:opus, opencode:opencode-go/grok-4.7` |
 | `interrogate reviewers` | **interrogate** reviewers (list) | `claude:opus, opencode:opencode-go/grok-4.7` |

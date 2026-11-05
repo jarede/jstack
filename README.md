@@ -57,12 +57,12 @@ Facts about my infrastructure live in one file, [environment.md](skills/jstack/r
 | [`/why`](skills/why/SKILL.md) | you want to know why something was built this way, from every evidence source available. |
 | [`/recall`](skills/recall/SKILL.md) | you are resuming work and want your recent context rebuilt from your transcripts and the shared record. |
 | [`/ketchup`](skills/ketchup/SKILL.md) | you want to catch up on what changed in this chat since your last message, in plain words, with every call waiting on you laid out so you can decide from the reply alone. |
-| [`/ketchup-video`](skills/ketchup-video/SKILL.md) | you want the `/ketchup` catch-up as a short silent video of slides, with the calls waiting on you as text under it. |
+| [`/ketchup-video`](skills/ketchup-video/SKILL.md) | you want the `/ketchup` catch-up as a short subtitled video of slides, with the calls waiting on you as text under it. |
 | [`/blast-radius`](skills/blast-radius/SKILL.md) | a small-looking change might break something else. |
 | [`/architect`](skills/architect/SKILL.md) | code is about to cross a function boundary and the caller's usage, types, and module shape should be settled first. |
 | [`/arena`](skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then the best parts of each. |
 | [`/swarm`](skills/swarm/SKILL.md) | you want N parallel workers over slices or races, then one report. |
-| [`/interrogate`](skills/interrogate/SKILL.md) | you have a diff and want models from different families to try to break it. |
+| [`/interrogate`](skills/interrogate/SKILL.md) | you have a diff and want models from different families to try to break it, keeping only findings a run proves. |
 | [`/figure-it-out`](skills/figure-it-out/SKILL.md) | no bundled playbook fits. It designs one for the task. |
 | [`/show-me-your-work`](skills/show-me-your-work/SKILL.md) | you want a reviewable decision trail. |
 | [`/reflect`](skills/reflect/SKILL.md) | a long task landed and the recipe should become a skill edit. |
@@ -81,7 +81,7 @@ Facts about my infrastructure live in one file, [environment.md](skills/jstack/r
 | [`/maintain-verification-skill`](skills/maintain-verification-skill/SKILL.md) | a project's verify skill drifted from the app. |
 | [`/create-formal-verification-skill`](skills/create-formal-verification-skill/SKILL.md) | a race, a retry, or an invariant needs proof in every case, not only the ones tests reach. |
 | [`/maintain-formal-verification-skill`](skills/maintain-formal-verification-skill/SKILL.md) | code covered by a formal check changed, and you need to know whether a failure is drift or a bug. |
-| [`/statechart`](skills/statechart/SKILL.md) | someone who owns the behavior needs to see it, not read a spec. Draws a TLA+ model as a Mermaid statechart, with each bug as a numbered path. |
+| [`/statechart`](skills/statechart/SKILL.md) | someone who owns the behavior needs to see it, not read a spec. Checks a TLA+ model, draws what the user sees as a Mermaid statechart, marks each state that breaks a rule, and gives the shortest path to each one. |
 | [`/automate-me`](skills/automate-me/SKILL.md) | you want a personal `-mode` skill drafted from how you actually work. |
 
 Plus 24 `principle-*` skills, one rule each, indexed inline by `/jstack`.
