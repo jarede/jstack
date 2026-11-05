@@ -32,6 +32,7 @@ Orca and herdr win over Claude desktop because they wrap the agent's own termina
 | jstack worker (reads `jstack` first) | `subagent_type: "jstack-agent"` | agent `jstack-agent` |
 | Comment reviewer | `subagent_type: "comment-sicko"` | agent `comment-sicko` |
 | Run a specific model from any family | **Dispatch** below | **Dispatch** below |
+| Run a program's workers under Orca (Orchestrate) | `orca.md` | `orca.md` |
 | Load a routed skill | `Read ~/.claude/skills/<id>/SKILL.md`. The `Skill` tool refuses skills marked `disable-model-invocation`, and almost every jstack skill is | `skill` tool with the id, or read the same file |
 | Wake on an event or keep looping | `/loop` in dynamic mode, a background `Bash` (the harness notifies you when it exits), or `Monitor` | `shell` with `background: true` (the session is notified when it exits) |
 | Isolated checkout | `isolation: "worktree"` on `Agent`, or `git worktree add` | `git worktree add`, then run the agent with that directory as its working dir |
@@ -45,6 +46,8 @@ Orca and herdr win over Claude desktop because they wrap the agent's own termina
 Add `.jstack/` to `.git/info/exclude` before writing there, unless the task says the trail gets committed.
 
 ## Dispatch: run a role on its configured model
+
+This section runs one delegate at a time. Under Orca, an Orchestrate program's workers start through `orca.md` instead, so Orca tracks their tasks, dependencies, and gates.
 
 Every role has a model in `~/.config/jstack/models.conf` (see `models.md`). The value decides how you spawn:
 
