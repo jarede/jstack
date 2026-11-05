@@ -7,7 +7,8 @@ for each program's pending gates and tasks, and reads the frontier MR's head pip
 - Status bar: `jstack: 1 gate · !12 ✓`, `warning` while a gate waits, `danger` when a frontier
   pipeline failed. With no programs: `jstack: idle`.
 - Notifications: once when a program's pending gates go from 0 to more than 0, and once when a
-  frontier pipeline turns `failed`. The first sample after activation never notifies.
+  frontier pipeline turns `failed`. The last check is kept under the user cache directory, so a
+  worker restart does not hide that edge; a first run with no saved check never notifies.
 - Panel: each program's objective, pending gates with options, tasks with status, and the frontier
   MR with its pipeline.
 

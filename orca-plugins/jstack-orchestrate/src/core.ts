@@ -58,6 +58,30 @@ export interface Notification {
   body: string
 }
 
+export interface ProgramState {
+  key: string
+  gatesOk: boolean
+  gates: Gate[]
+  frontierOk: boolean
+  frontier: Frontier | null
+}
+
+export interface NotificationSource {
+  programs: ProgramState[]
+}
+
+export interface NotificationState extends NotificationSource {
+  version: 1
+  savedAt: number
+}
+
+export interface PluginSettings {
+  repoPaths: unknown
+  orcaPath: string
+  glabPath: string
+  intervalSeconds: number
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -69,6 +93,22 @@ function asString(value: unknown): string | null {
 export function clip(value: string, max: number): string {
   const text = value.replace(/\s+/g, ' ').trim()
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
+}
+
+const SETTING_KEYS = ['repoPaths', 'orcaPath', 'glabPath', 'intervalSeconds'] as const
+
+export function parseSettings(answer: unknown): PluginSettings {
+  const envelope = isRecord(answer) ? answer : {}
+  const wrapped = isRecord(envelope.settings) ? envelope.settings : null
+  const raw: Record<string, unknown> =
+    wrapped ?? (SETTING_KEYS.some((key) => key in envelope) ? envelope : {})
+
+  return {
+    repoPaths: raw.repoPaths,
+    orcaPath: asString(raw.orcaPath) ?? '',
+    glabPath: asString(raw.glabPath) ?? '',
+    intervalSeconds: typeof raw.intervalSeconds === 'number' ? raw.intervalSeconds : 30
+  }
 }
 
 export function parseConfig(text: string | null): { config: OrcaConfig } | { error: string } {
@@ -329,7 +369,81 @@ export function summarize(programs: Program[], checkedAt: number): Snapshot {
   }
 }
 
-export function deriveNotifications(previous: Snapshot | null, current: Snapshot): Notification[] {
+export function notificationState(snapshot: Snapshot, savedAt = snapshot.checkedAt): NotificationState {
+  return {
+    version: 1,
+    savedAt,
+    programs: snapshot.programs.map((program) => ({
+      key: program.key,
+      gatesOk: program.gatesOk,
+      gates: program.gates,
+      frontierOk: program.frontierOk,
+      frontier: program.frontier
+    }))
+  }
+}
+
+function parseSavedFrontier(value: unknown): Frontier | null {
+  if (!isRecord(value)) return null
+  const iid = typeof value.iid === 'number' ? value.iid : NaN
+  if (!Number.isInteger(iid) || iid <= 0) return null
+  return {
+    iid,
+    title: asString(value.title),
+    state: asString(value.state),
+    pipeline: asString(value.pipeline),
+    webUrl: asString(value.webUrl)
+  }
+}
+
+function parseSavedGate(value: unknown): Gate | null {
+  if (!isRecord(value)) return null
+  const id = asString(value.id)
+  if (!id) return null
+  return {
+    id,
+    taskId: asString(value.taskId),
+    question: asString(value.question) ?? 'pending decision gate',
+    options: parseOptions(value.options)
+  }
+}
+
+export function parseNotificationState(text: string): NotificationState | null {
+  let value: unknown
+  try {
+    value = JSON.parse(text)
+  } catch {
+    return null
+  }
+  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.programs)) return null
+
+  const programs = value.programs.flatMap((row): ProgramState[] => {
+    if (!isRecord(row) || typeof row.key !== 'string') return []
+    const gates = Array.isArray(row.gates)
+      ? row.gates.flatMap((gate): Gate[] => {
+          const parsed = parseSavedGate(gate)
+          return parsed ? [parsed] : []
+        })
+      : []
+    return [
+      {
+        key: row.key,
+        gatesOk: row.gatesOk === true,
+        gates,
+        frontierOk: row.frontierOk === true,
+        frontier: parseSavedFrontier(row.frontier)
+      }
+    ]
+  })
+
+  return {
+    version: 1,
+    savedAt: typeof value.savedAt === 'number' && Number.isFinite(value.savedAt) ? value.savedAt : 0,
+    programs
+  }
+}
+
+export function deriveNotifications(previous: NotificationSource | null, current: Snapshot): Notification[] {
   if (!previous) return []
 
   const before = new Map(previous.programs.map((program) => [program.key, program]))

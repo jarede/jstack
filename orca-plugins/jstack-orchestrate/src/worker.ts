@@ -1,21 +1,27 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { readFile, readdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
 import type { Dirent } from 'node:fs'
 import type { OrcaWorkerApi } from 'orca/worker'
 import {
   clip,
   deriveNotifications,
+  notificationState,
   parseConfig,
   parseGateList,
   parseMrView,
+  parseNotificationState,
   parseRunList,
+  parseSettings,
   parseTaskList,
   summarize,
   type Frontier,
   type Gate,
+  type NotificationState,
   type OrcaConfig,
+  type PluginSettings,
   type Program,
   type Snapshot,
   type Task
@@ -36,13 +42,6 @@ interface RunResult {
 interface RunOptions {
   cwd?: string
   timeout?: number
-}
-
-interface Settings {
-  repoPaths: unknown
-  orcaPath: string
-  glabPath: string
-  intervalSeconds: number
 }
 
 interface Binaries {
@@ -103,25 +102,42 @@ function log(orca: OrcaWorkerApi, message: string): void {
   }
 }
 
-async function readSettings(orca: OrcaWorkerApi): Promise<Settings> {
-  let raw: Record<string, unknown> = {}
+function notificationStateFile(): string {
+  const cache =
+    process.env.XDG_CACHE_HOME ||
+    (process.platform === 'darwin'
+      ? join(homedir(), 'Library', 'Caches')
+      : join(homedir(), '.cache'))
+  return join(cache, 'jstack-orchestrate', 'notification-state.json')
+}
+
+async function readNotificationState(orca: OrcaWorkerApi): Promise<NotificationState | null> {
+  const file = notificationStateFile()
   try {
-    const answer = (await orca.host.call('settings.get', {})) as unknown
-    if (answer && typeof answer === 'object' && 'settings' in answer) {
-      const settings = (answer as { settings?: unknown }).settings
-      if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
-        raw = settings as Record<string, unknown>
-      }
-    }
+    return parseNotificationState(await readFile(file, 'utf8'))
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code !== 'ENOENT') log(orca, `cannot read ${file}: ${errorText(error)}`)
+    return null
+  }
+}
+
+async function writeNotificationState(orca: OrcaWorkerApi, state: NotificationState): Promise<void> {
+  const file = notificationStateFile()
+  try {
+    await mkdir(dirname(file), { recursive: true })
+    await writeFile(file, `${JSON.stringify(state)}\n`, { encoding: 'utf8', mode: 0o600 })
+  } catch (error) {
+    log(orca, `cannot write ${file}: ${errorText(error)}`)
+  }
+}
+
+async function readSettings(orca: OrcaWorkerApi): Promise<PluginSettings> {
+  try {
+    return parseSettings(await orca.settings.get())
   } catch (error) {
     log(orca, `settings.get failed: ${errorText(error)}`)
-  }
-
-  return {
-    repoPaths: raw.repoPaths,
-    orcaPath: typeof raw.orcaPath === 'string' ? raw.orcaPath.trim() : '',
-    glabPath: typeof raw.glabPath === 'string' ? raw.glabPath.trim() : '',
-    intervalSeconds: typeof raw.intervalSeconds === 'number' ? raw.intervalSeconds : 30
+    return parseSettings(null)
   }
 }
 
@@ -153,7 +169,7 @@ async function fromLoginShell(name: string): Promise<string | null> {
   return path && existsSync(path) ? path : null
 }
 
-async function resolveBinaries(orca: OrcaWorkerApi, settings: Settings): Promise<Binaries> {
+async function resolveBinaries(orca: OrcaWorkerApi, settings: PluginSettings): Promise<Binaries> {
   const key = `${settings.orcaPath}\u0000${settings.glabPath}`
   if (binaries && binaryKey === key) return binaries
   if (binaryPromise && binaryKey === key) return binaryPromise
@@ -311,7 +327,7 @@ async function inspectProgram(
   }
 }
 
-async function collect(orca: OrcaWorkerApi, settings: Settings, bins: Binaries): Promise<Program[]> {
+async function collect(orca: OrcaWorkerApi, settings: PluginSettings, bins: Binaries): Promise<Program[]> {
   const found: FoundProgram[] = []
   const seen = new Set<string>()
   for (const repoPath of repoPaths(settings.repoPaths)) {
@@ -337,9 +353,10 @@ async function collect(orca: OrcaWorkerApi, settings: Settings, bins: Binaries):
 }
 
 let latest: Snapshot | null = null
-let previous: Snapshot | null = null
+let previous: NotificationState | null = null
 let inFlight: Promise<Snapshot> | null = null
 let timer: ReturnType<typeof setTimeout> | null = null
+let ready: Promise<void> = Promise.resolve()
 let stopped = false
 
 async function doRefresh(orca: OrcaWorkerApi): Promise<Snapshot> {
@@ -355,7 +372,8 @@ async function doRefresh(orca: OrcaWorkerApi): Promise<Snapshot> {
 
   const snapshot = summarize(programs, Date.now())
   const before = previous
-  previous = snapshot
+  const state = programs.length > 0 ? notificationState(snapshot) : null
+  if (state) previous = state
   latest = snapshot
 
   try {
@@ -369,13 +387,17 @@ async function doRefresh(orca: OrcaWorkerApi): Promise<Snapshot> {
     log(orca, `statusBar.update failed: ${errorText(error)}`)
   }
 
-  for (const notification of deriveNotifications(before, snapshot)) {
+  const notifications = deriveNotifications(before, snapshot)
+  for (const notification of notifications) {
+    const params = JSON.stringify(notification)
     try {
-      await orca.host.call('notifications.show', notification)
+      const answer = await orca.host.call('notifications.show', notification)
+      log(orca, `notifications.show ${params} -> ${JSON.stringify(answer)}`)
     } catch (error) {
-      log(orca, `notifications.show failed: ${errorText(error)}`)
+      log(orca, `notifications.show ${params} failed: ${errorText(error)}`)
     }
   }
+  if (state) await writeNotificationState(orca, state)
 
   try {
     orca.panels.post('programs.changed', snapshot)
@@ -387,7 +409,8 @@ async function doRefresh(orca: OrcaWorkerApi): Promise<Snapshot> {
   log(
     orca,
     `${snapshot.text} | programs=${programs.length} | tone=${snapshot.tone} | ` +
-      `error=${firstError ?? '-'} | orca=${bins.orca} glab=${bins.glab}`
+      `notify=${notifications.length} | error=${firstError ?? '-'} | ` +
+      `orca=${bins.orca} glab=${bins.glab}`
   )
   return snapshot
 }
@@ -428,18 +451,25 @@ export default function activate(orca: OrcaWorkerApi): void {
   stopped = false
   previous = null
   latest = null
-  orca.panels.handle('programs.snapshot', async () => latest ?? (await refresh(orca)))
-  orca.panels.handle('programs.refresh', async () => refresh(orca))
-
-  void (async () => {
+  ready = (async () => {
+    previous = await readNotificationState(orca)
     try {
       const settings = await readSettings(orca)
       await resolveBinaries(orca, settings)
     } catch (error) {
       log(orca, `could not resolve binaries: ${errorText(error)}`)
     }
-    await tick(orca)
   })()
+  orca.panels.handle('programs.snapshot', async () => {
+    await ready
+    return latest ?? (await refresh(orca))
+  })
+  orca.panels.handle('programs.refresh', async () => {
+    await ready
+    return refresh(orca)
+  })
+
+  void ready.then(() => tick(orca))
 }
 
 export function deactivate(): void {

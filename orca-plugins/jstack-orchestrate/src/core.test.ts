@@ -2,9 +2,12 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   deriveNotifications,
+  notificationState,
   parseConfig,
   parseGateList,
   parseMrView,
+  parseNotificationState,
+  parseSettings,
   parseTaskList,
   summarize,
   type Gate,
@@ -54,6 +57,34 @@ test('a 0 to N gate transition notifies once and N to N does not', () => {
 test('the first sample after activation never notifies', () => {
   const first = summarize([program({ gates: [gate('Ship it?')] })], 1)
   assert.deepEqual(deriveNotifications(null, first), [])
+})
+
+test('the saved state round-trips and keeps the 0 to N edge across a restart', () => {
+  const saved = notificationState(summarize([program()], 1))
+  const restored = parseNotificationState(JSON.stringify(saved))
+  assert.deepEqual(restored, saved)
+
+  const after = summarize([program({ gates: [gate('Ship it?')] })], 2)
+  assert.equal(deriveNotifications(restored, after).length, 1)
+
+  const alreadyPending = notificationState(summarize([program({ gates: [gate('Ship it?')] })], 1))
+  assert.deepEqual(
+    deriveNotifications(parseNotificationState(JSON.stringify(alreadyPending)), after),
+    []
+  )
+})
+
+test('a corrupt saved state is ignored', () => {
+  assert.equal(parseNotificationState('{'), null)
+  assert.equal(parseNotificationState('[]'), null)
+  assert.equal(parseNotificationState('{"version":2,"programs":[]}'), null)
+  assert.deepEqual(parseNotificationState('{"version":1,"programs":[{"key":"/repo/orca.json"}]}'), {
+    version: 1,
+    savedAt: 0,
+    programs: [
+      { key: '/repo/orca.json', gatesOk: false, gates: [], frontierOk: false, frontier: null }
+    ]
+  })
 })
 
 test('a failed pipeline gives danger and one notification', () => {
@@ -198,4 +229,47 @@ test('parses the JSON shapes orca and glab print', () => {
     pipeline: 'success',
     webUrl: 'https://git.example/mr/2'
   })
+})
+
+test('reads the settings record the worker API returns', () => {
+  assert.deepEqual(
+    parseSettings({
+      repoPaths: '/Users/me/projetos/jstack',
+      orcaPath: ' /usr/local/bin/orca ',
+      glabPath: '',
+      intervalSeconds: 10
+    }),
+    {
+      repoPaths: '/Users/me/projetos/jstack',
+      orcaPath: '/usr/local/bin/orca',
+      glabPath: '',
+      intervalSeconds: 10
+    }
+  )
+})
+
+test('also reads the raw settings.get envelope', () => {
+  const answer = { settings: { repoPaths: '/repo', orcaPath: '', glabPath: '/bin/glab', intervalSeconds: 60 } }
+  assert.deepEqual(parseSettings(answer), {
+    repoPaths: '/repo',
+    orcaPath: '',
+    glabPath: '/bin/glab',
+    intervalSeconds: 60
+  })
+
+  assert.deepEqual(parseSettings({ settings: { repoPaths: '/wrapped' }, repoPaths: '/flat' }), {
+    repoPaths: '/wrapped',
+    orcaPath: '',
+    glabPath: '',
+    intervalSeconds: 30
+  })
+})
+
+test('settings of the wrong shape fall back to their defaults', () => {
+  const defaults = { repoPaths: undefined, orcaPath: '', glabPath: '', intervalSeconds: 30 }
+  assert.deepEqual(parseSettings(null), defaults)
+  assert.deepEqual(parseSettings([]), defaults)
+  assert.deepEqual(parseSettings({ settings: null }), defaults)
+  assert.deepEqual(parseSettings({ unrelated: 'value' }), defaults)
+  assert.deepEqual(parseSettings({ intervalSeconds: 'soon' }), defaults)
 })
