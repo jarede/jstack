@@ -25,8 +25,8 @@ A line marked **TODO** is a fact nobody has confirmed yet. Do not guess past it.
 ## QA environment: Docker on `qa.bistek.com.br`
 
 - Containers for QA run on `qa.bistek.com.br`. The local machine has no Docker CLI. Install it (`brew install docker`) or run commands over SSH.
-- Remote access: **TODO** confirm the SSH user and whether `DOCKER_HOST=ssh://<user>@qa.bistek.com.br docker ps` works from this machine.
-- Deploying a branch or MR to QA: **TODO** (a GitLab CI deploy job, a compose file on the host, a registry tag). Until this is known, verification on QA is "deploy per the project's README, then drive the surface". Record the real steps here once seen.
+- Remote access: `ssh jarede.silva@qa.bistek.com.br` works with key auth (`-o BatchMode=yes`), confirmed 2026-11-05. **TODO** whether `DOCKER_HOST=ssh://jarede.silva@qa.bistek.com.br docker ps` works.
+- Deploying to QA (prezzo/prezzo): push a tag matching `^qa-` on the commit to publish. The CI job `publica-qa.bistek` copies `/opt/apps/prezzo/docker/qa/.env.dev` from the host into the image at build time, so an env change on the host takes effect only on the next `qa-*` tag. Confirmed 2026-11-05 from `.gitlab-ci.yml`.
 - Reading QA logs: **TODO**. Expected `docker logs --since <t> <container>` through the remote context.
 - Registry: **TODO** (the GitLab container registry on `git.bistek.com.br`, or another).
 
