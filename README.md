@@ -86,6 +86,10 @@ Facts about my infrastructure live in one file, [environment.md](skills/jstack/r
 
 Plus 24 `principle-*` skills, one rule each, indexed inline by `/jstack`.
 
+## Orca plugin
+
+`orca-plugins/jstack-orchestrate/` is a `trusted-worker` Orca plugin for jstack Orchestrate programs. It shows pending decision gates and the lowest unmerged MR's pipeline in Orca's status bar, notifies when a gate appears or a pipeline fails, and lists each program's gates, tasks, and frontier MR in a side panel. `just orca-plugin` loads it for development; the operator approves it in Orca.
+
 ## Maintenance
 
 Editing a skill is editing its file here. Installed copies are links, so a change applies from the next session.

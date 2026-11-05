@@ -36,3 +36,7 @@ typecheck:
 
 # Everything a change should pass before commit
 ci: check test typecheck
+
+# Load the jstack-orchestrate Orca plugin in dev mode (prints Orca's approval prompt)
+orca-plugin:
+    orca plugin dev load orca-plugins/jstack-orchestrate --json

@@ -1,0 +1,74 @@
+{
+  "manifestVersion": 2,
+  "id": "jstack-orchestrate",
+  "name": "jstack orchestrate",
+  "version": "0.1.0",
+  "description": "Shows pending decision gates and the frontier MR pipeline of jstack orchestrate programs.",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [
+      {
+        "id": "jstack-orchestrate",
+        "title": "jstack orchestrate",
+        "icon": "layers",
+        "entry": "src/panel.tsx",
+        "ui": "components"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "programs",
+        "text": "jstack: …",
+        "icon": "layers",
+        "tone": "neutral",
+        "tooltip": "jstack orchestrate: waiting for the first check"
+      }
+    ],
+    "settings": [
+      {
+        "key": "repoPaths",
+        "title": "Repo paths",
+        "description": "Absolute repo paths to scan, one per line. Each is read under .jstack/orchestrate/*/orca.json.",
+        "type": "string",
+        "default": "",
+        "multiline": true
+      },
+      {
+        "key": "orcaPath",
+        "title": "orca path",
+        "description": "Leave empty to resolve orca from your login shell, falling back to /usr/local/bin/orca.",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "key": "glabPath",
+        "title": "glab path",
+        "description": "Leave empty to resolve glab from your login shell, falling back to /opt/homebrew/bin/glab.",
+        "type": "string",
+        "default": ""
+      },
+      {
+        "key": "intervalSeconds",
+        "title": "Interval (seconds)",
+        "description": "How often the worker reads every program. Minimum 5.",
+        "type": "integer",
+        "default": 30,
+        "minimum": 5,
+        "maximum": 3600
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "notifications:show"
+    },
+    {
+      "kind": "settings:own"
+    }
+  ]
+}

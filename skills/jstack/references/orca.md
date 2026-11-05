@@ -11,7 +11,7 @@ Orca's own guide is `orca skills get orchestration`, with references under `--re
 ## Start a program
 
 1. Create the Run. `orca orchestration run-create --objective "<the goal, in one sentence>" --json` returns the `runId`.
-2. Write `.jstack/orchestrate/<slug>/orca.json` with `{"runId": "<runId>", "coordinator": "<ORCA_TERMINAL_HANDLE>"}`. A plugin or a restarted coordinator reads the Run from it. Reads such as `task-list`, `gate-list`, `run-show`, and `inbox` need only `--run`. Writes such as `task-create`, `worker-start`, and `run-use` need a sender, so a process outside an Orca terminal passes `--from <handle>`. `check` takes `--terminal <handle>` instead.
+2. Write `.jstack/orchestrate/<slug>/orca.json` with `{"runId": "<runId>", "coordinator": "<ORCA_TERMINAL_HANDLE>"}`. A plugin or a restarted coordinator reads the Run from it. Reads such as `task-list`, `gate-list`, `run-show`, and `inbox` need only `--run`. Writes such as `task-create`, `worker-start`, and `run-use` need a sender, so a process outside an Orca terminal passes `--from <handle>`. `check` takes `--terminal <handle>` instead. The optional `"repo": "<absolute repo path>"` and `"frontierMr": <iid>` fields, the lowest unmerged MR rewritten by the coordinator after each merge, let the jstack-orchestrate Orca plugin show the program's frontier pipeline.
 3. Create each unit as a task. Write its kickoff to `.jstack/orchestrate/<slug>/<unit>.md` and pass it with `--spec-file`, so quotes need no escaping:
 
    ```sh
