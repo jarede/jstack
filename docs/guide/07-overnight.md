@@ -91,7 +91,7 @@ The contract above drives one task to one finish condition. Some nights hold mor
 
 ## Run many projects in parallel
 
-For several related workstreams, use one coordinator chat and a separate worktree for each workstream. The coordinator directs subagents and tracks their reports. It does not write code. Start each task through `/jstack`, and give every code agent its own worktree.
+For several related workstreams, use one coordinator chat and a separate worktree for each workstream. The coordinator directs subagents and tracks their reports. It does not write code. Start each task through `/jstack`, and give every code agent its own worktree. Each subagent reads [`worker.md`](../../skills/jstack/worker.md) first, so it holds to the kickoff's bar, decides reversible calls instead of asking you, and opens MRs ready for review.
 
 A few habits help:
 

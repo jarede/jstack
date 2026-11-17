@@ -54,7 +54,7 @@ Facts about my infrastructure live in one file, [environment.md](skills/jstack/r
 | [`/jstack-help`](skills/jstack-help/SKILL.md) | you are unsure which skill, playbook, or principle fits. |
 | [`/setup-jstack`](skills/setup-jstack/SKILL.md) | you want to choose the model per role. |
 | [`/how`](skills/how/SKILL.md) | you want a walkthrough of how a subsystem works. |
-| [`/why`](skills/why/SKILL.md) | you want to know why something was built this way, from every evidence source available. |
+| [`/why`](skills/why/SKILL.md) | you want to know why something was built this way. answers from the record, not the code: the commits and MR discussions that introduced it and each later change, and other sources when that trail is thin. cites what the authors wrote, marks its own inferences, and says what the record does not answer. |
 | [`/recall`](skills/recall/SKILL.md) | you are resuming work and want your recent context rebuilt from your transcripts and the shared record. |
 | [`/ketchup`](skills/ketchup/SKILL.md) | you want to catch up on what changed in this chat since your last message, in plain words, with every call waiting on you laid out so you can decide from the reply alone. |
 | [`/ketchup-video`](skills/ketchup-video/SKILL.md) | you want the `/ketchup` catch-up as a short subtitled video of slides, with the calls waiting on you as text under it. |
@@ -75,7 +75,7 @@ Facts about my infrastructure live in one file, [environment.md](skills/jstack/r
 | [`/technical-writing`](skills/technical-writing/SKILL.md) | docs, READMEs, MR descriptions, commit messages. |
 | [`/bro`](skills/bro/SKILL.md) | restate the last message in plain language. |
 | [`/in-your-own-words`](skills/in-your-own-words/SKILL.md) | you want the agent to restate your goal and the problem before it starts. |
-| [`/sharpen`](skills/sharpen/SKILL.md) | you want a prompt rewritten deeper, not bigger, before you send it. It returns the prompt and doesn't do the task. |
+| [`/sharpen`](skills/sharpen/SKILL.md) | you want a prompt rewritten deeper, not bigger, before you send it. The rewrite asks the agent to prototype any choice an experiment can settle and to recommend an option from what it observed, and it leaves product and preference choices to you. It returns the prompt and doesn't do the task. |
 | [`/typescript-best-practices`](skills/typescript-best-practices/SKILL.md) | reading or editing TypeScript. |
 | [`/create-verification-skill`](skills/create-verification-skill/SKILL.md) | a project has no scripted way to prove app behavior. |
 | [`/maintain-verification-skill`](skills/maintain-verification-skill/SKILL.md) | a project's verify skill drifted from the app. |

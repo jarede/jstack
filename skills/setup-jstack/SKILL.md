@@ -24,7 +24,7 @@ If `~/.config/jstack/models.conf` exists, read it and treat its values as the cu
 
 ### 3. Show the roles and confirm
 
-Show every role with its current model, marking any value step 1 could not confirm as needing a choice. Ask once, with the question tool from the jstack skill's `references/harness.md`, whether to accept as-is or change specific roles. Offer the detected models plus `inherit`. For panel roles (`arena runners`, `architect runners`, `interrogate reviewers`) the value is a list, one subagent per entry, so the list length sets the fan-out. Recommend two model families in every panel, since a second opinion from the same model is not one. `arena cross-judge pool` is also a list, but arena runs one judge. It tries only entries from a family other than the parent's, in list order, so order it by preference. An `inherit` entry never judges.
+Show every role with its current model, marking any value step 1 could not confirm as needing a choice. Ask once, with the question tool from the jstack skill's `references/harness.md`, whether to accept as-is or change specific roles. Offer the detected models plus `inherit`. For panel roles (`arena runners`, `interrogate reviewers`) the value is a list, one subagent per entry, so the list length sets the fan-out. Recommend two model families in every panel, since a second opinion from the same model is not one. `arena cross-judge pool` is also a list, but arena runs one judge. It tries only entries from a family other than the parent's, in list order, so order it by preference. An `inherit` entry never judges.
 
 In the same question, ask for the `opencode fallback` chain: the ordered `opencode:` models jstack moves to when a model's limit runs out (free tier expired, quota or usage cap hit, credits gone). The rule lives in `references/models.md` (**Fallback when a model's limit runs out**). Show the current chain, or "none" when the line is missing, and say that without a chain an exhausted model stops its role until the operator answers. Recommend two or three entries that differ from the models the roles already use, preferring ones from another provider or plan, so one expired plan does not take the whole chain with it (for example, `opencode/*-free` behind an `opencode-go/*` primary, or the reverse). Offer the detected `opencode:` models plus `claude:<alias>`. A `claude:` entry is allowed here, usually last, because the operator chose it for this line.
 
@@ -46,16 +46,9 @@ perf-issue: opencode:opencode-go/grok-4.7
 hillclimb: opencode:opencode-go/grok-4.7
 judgment and prose: claude:opus
 hardest tasks: claude:opus
-how explorer: opencode:opencode-go/grok-4.7
-how explainer: claude:opus
-why investigators: opencode:opencode-go/grok-4.7
-why synthesizer: claude:opus
-reflect tooling: opencode:opencode-go/grok-4.7
-reflect judgment, divergent, synthesizer: claude:opus
 arena runners: claude:opus, opencode:opencode-go/grok-4.7
 arena cross-judge pool: claude:opus, opencode:opencode-go/grok-4.7
 swarm workers: opencode:opencode-go/grok-4.7
-architect runners: claude:opus, opencode:opencode-go/grok-4.7
 interrogate reviewers: claude:opus, opencode:opencode-go/grok-4.7
 # Tried in order when an opencode model's limit runs out. Not a role. Empty or missing: stop and ask.
 opencode fallback: claude:haiku

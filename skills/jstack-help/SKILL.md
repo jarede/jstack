@@ -48,7 +48,7 @@ If cost is the worry, say where the tokens go and how to spend fewer. jstack spe
 
 ## Start a task with `/jstack`
 
-`/jstack` matches the task to a playbook, copies the playbook's steps into the todo list, and runs other skills as the steps need them. A skipped step stays in the list as `skip: <reason>`. A good prompt states the goal and how to tell it is done. It does not list skills, because a hand-written sequence can drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one. [Guide page 2](../../docs/guide/02-jstack.md) has examples.
+`/jstack` matches the task to a playbook, copies the playbook's steps into the todo list, and runs the other skills as the steps need them. A good prompt states the goal and how to tell it's done. It doesn't list skills, because a hand-written sequence tends to drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one. [Guide page 2](../../docs/guide/02-jstack.md) has examples.
 
 There is no persistent custom mode. Type `/jstack` at the start of each task. In opencode, the installer generates `/jstack` as a slash command. In Claude Code, invoke the linked skill by its slash command.
 
@@ -100,7 +100,6 @@ Close calls:
 
 - `/how` explains what the code does. `/why` explains the reasons. `/teach` runs one or both and explains the result plainly.
 - `/arena` gives every worker the same brief and merges the best parts. `/swarm` splits work into slices or a race and returns one report.
-- `/architect` implements right after it settles the design. Add "with checkpoint" to review the design before it writes code.
 - `/interrogate` reviews the diff. `/blast-radius` looks for breakage outside the diff and proves the one fact that makes the change safe.
 - `/recall` rebuilds context across recent chats. `/ketchup` covers only this chat since the user's last message. Resuming one specific chat or branch is the Session pickup playbook.
 - `/figure-it-out` designs one rigorous run. The Orchestrate playbook runs a program that spans days and many MRs. The Autonomous run playbook drives one task to a finish condition.
@@ -122,7 +121,7 @@ Playbooks are step lists inside `/jstack`, not skills, so they have no slash com
 - "full autopilot on this queue" runs Autopilot-full. "autopilot, don't merge" runs Autopilot-stack.
 - "run the eval playbook" runs Eval.
 
-The Playbooks section of [`jstack`](../jstack/SKILL.md) lists every playbook and when it applies. [Guide page 6](../../docs/guide/06-verify-and-ship.md) covers opening, babysitting, and landing an MR.
+The Playbooks section of [`jstack`](../jstack/SKILL.md) lists every playbook. [Guide page 6](../../docs/guide/06-verify-and-ship.md) covers opening, babysitting, and landing an MR.
 
 jstack has no planning skill. Claude Code Plan Mode works alongside it. opencode has a plan agent. For work that spans phases or stacked MRs, asking `/jstack` for a plan runs the [Multi-phase plan playbook](../jstack/playbooks/multi-phase-plan.md), which writes the plan and does not implement it. For a design question, the Prototype playbook or `/architect` settles it in code first.
 

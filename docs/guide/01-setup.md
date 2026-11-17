@@ -55,7 +55,7 @@ Pick something real but small, and describe it the way you'd describe it to a co
 /jstack add a --json flag to this command. text output stays byte-identical. verify both.
 ```
 
-Watch the todo list. Its first items are the matched playbook's steps copied in, the Feature playbook for this prompt. If `/jstack` skips a step, it stays in the list with `skip: <reason>`, so you can see what it chose not to do.
+Watch the todo list. Its first items are the matched playbook's steps copied in, the Feature playbook for this prompt.
 
 You can type normal follow-ups after the task starts. Start each new task with `/jstack`. In opencode, the installer generates `/jstack` as a slash command.
 
