@@ -41,8 +41,8 @@ A line marked **TODO** is a fact nobody has confirmed yet. Do not guess past it.
 | Observability and error tracking | none configured | **TODO** |
 | Database | MCP servers the session exposes, discovered at run time | available when connected |
 
-**why** discovers MCP servers at run time. A category with no tool is a skipped source, reported as skipped.
+**why** and **recall** use this table and discover MCP servers at run time. A category with no tool is a skipped source, reported as skipped.
 
 ## Adding a technology
 
-To support a new tool (an issue tracker, an observability stack, a chat), add a row or a section here first. Then, when a skill needs per-tool steps, add one file under that skill's `references/` (for **why**, `references/sources/<tool>.md`, shaped like `code-archaeology.md`). Keep tool names out of playbooks.
+To support a new tool (an issue tracker, an observability stack, a chat), add a row or a section here first. Then, when a skill needs per-tool steps, add one file under that skill's `references/`. Keep tool names out of playbooks.
