@@ -34,7 +34,7 @@ Orca, herdr app, and herdr win over Claude desktop because they wrap the agent's
 | Comment reviewer | `subagent_type: "comment-sicko"` | agent `comment-sicko` |
 | Run a specific model from any family | **Dispatch** below | **Dispatch** below |
 | Run a program's workers under Orca (Orchestrate) | `orca.md` | `orca.md` |
-| Load a routed skill | `Read ~/.claude/skills/<id>/SKILL.md`. The `Skill` tool refuses skills marked `disable-model-invocation`, and almost every jstack skill is | `skill` tool with the id, or read the same file |
+| Load a routed skill | `Read ~/.claude/skills/<id>/SKILL.md`. The `Skill` tool refuses skills marked `disable-model-invocation`, and almost every jstack skill is | `skill` tool with the id, or read `~/.config/opencode/skills/<id>/SKILL.md` |
 | Wake on an event or keep looping | `/loop` in dynamic mode, a background `Bash` (the harness notifies you when it exits), or `Monitor` | `shell` with `background: true` (the session is notified when it exits) |
 | Isolated checkout | `isolation: "worktree"` on `Agent`, or `git worktree add` | `git worktree add`, then run the agent with that directory as its working dir |
 | Plan mode | `EnterPlanMode` | agent `plan` |

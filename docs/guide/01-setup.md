@@ -7,10 +7,10 @@ In this page you install jstack, choose its models, and run your first task. You
 From the jstack repository root, run:
 
 ```sh
-./scripts/install.sh
+just install claude    # or: just install opencode
 ```
 
-The installer links skills into `~/.claude/skills`. opencode reads the same folder. It also generates an opencode slash command for each user-facing skill.
+The agent is required. `claude` links the skills and subagents into `~/.claude/`. `opencode` links them into `~/.config/opencode/` and also generates an opencode slash command for each user-facing skill. Run both commands if you use both agents.
 
 ## Pick your models
 

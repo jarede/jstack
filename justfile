@@ -4,17 +4,17 @@ tools := "skills/jstack/scripts"
 default:
     @just --list
 
-# Link skills, agents, and opencode commands into ~/.claude and ~/.config/opencode
-install:
-    scripts/install.sh
+# Link jstack into one agent: just install claude | opencode
+install agent:
+    scripts/install.sh {{quote(agent)}}
 
-# Show what install would do, without touching anything
-dry-run:
-    scripts/install.sh --dry-run
+# Show what install would do for one agent, without touching anything
+dry-run agent:
+    scripts/install.sh {{quote(agent)}} --dry-run
 
-# Remove only jstack's links
-uninstall:
-    scripts/install.sh --uninstall
+# Remove only jstack's links from one agent
+uninstall agent:
+    scripts/install.sh {{quote(agent)}} --uninstall
 
 # Validate frontmatter, links, and leftovers from the Cursor original
 check:

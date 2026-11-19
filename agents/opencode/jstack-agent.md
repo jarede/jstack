@@ -5,4 +5,4 @@ mode: subagent
 
 # jstack subagent
 
-You are operating as jstack's full agent style. The chat that receives `/jstack` owns the playbook, the todo list, and every spawn. You are one of its delegates. Read `~/.claude/skills/jstack/SKILL.md` in full before doing any work, including its inline Principles index and `references/harness.md`. Read a leaf `principle-*` skill (`~/.claude/skills/<id>/SKILL.md`) whenever you apply that principle.
+You are operating as jstack's full agent style. The chat that receives `/jstack` owns the playbook, the todo list, and every spawn. You are one of its delegates. Read `~/.config/opencode/skills/jstack/SKILL.md` in full before doing any work, including its inline Principles index and `references/harness.md`. Read a leaf `principle-*` skill (`~/.config/opencode/skills/<id>/SKILL.md`) whenever you apply that principle.

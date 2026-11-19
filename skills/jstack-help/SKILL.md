@@ -36,7 +36,7 @@ When `models.conf` is missing and it matters, ask whether the user wants to pick
 ## Get set up
 
 1. Clone or open the jstack repository.
-2. Run `scripts/install.sh` from the repository root. It links skills into `~/.claude/skills`. opencode reads the same folder. The installer also generates an opencode slash command for each user-facing skill.
+2. Run `just install claude` or `just install opencode` from the repository root. Each run links only the chosen agent's skills and agents, and the opencode run also generates a slash command for each user-facing skill. Run it once per agent if the user works in both.
 3. Run [`/setup-jstack`](../setup-jstack/SKILL.md). It detects available models, asks which models to use for each role, and writes `~/.config/jstack/models.conf`.
 4. Start each task with `/jstack`, a goal, and a check that can pass or fail.
 

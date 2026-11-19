@@ -11,22 +11,23 @@ Requirements: macOS or Linux, `bash`, `python3`, `just`. For the full set also `
 ```bash
 git clone https://github.com/jarede/jstack.git ~/projetos/jstack
 cd ~/projetos/jstack
-just dry-run
-just install
+just dry-run claude    # or: just dry-run opencode
+just install claude    # or: just install opencode
 ```
 
-`just` alone lists every recipe.
+`just` alone lists every recipe. `install`, `dry-run`, and `uninstall` require the agent: `claude` or `opencode`. Each run touches only that agent's folders, so run it once for each agent you use.
 
-The install script links:
+The install script links, per agent:
 
-| From | To | Read by |
-|---|---|---|
-| `skills/<id>/` | `~/.claude/skills/<id>` | Claude Code and opencode (opencode reads this folder too) |
-| `agents/claude/*.md` | `~/.claude/agents/` | Claude Code |
-| `agents/opencode/*.md` | `~/.config/opencode/agents/` | opencode |
-| generated `build/commands/<id>.md` | `~/.config/opencode/commands/` | opencode, so `/how`, `/jstack`, and friends work there too |
+| Agent | From | To | Read by |
+|---|---|---|---|
+| `claude` | `skills/<id>/` | `~/.claude/skills/<id>` | Claude Code |
+| `claude` | `agents/claude/*.md` | `~/.claude/agents/` | Claude Code |
+| `opencode` | `skills/<id>/` | `~/.config/opencode/skills/<id>` | opencode |
+| `opencode` | `agents/opencode/*.md` | `~/.config/opencode/agents/` | opencode |
+| `opencode` | generated `build/commands/<id>.md` | `~/.config/opencode/commands/` | opencode, so `/how`, `/jstack`, and friends work there too |
 
-It is idempotent. Every link that points into this repository is managed by it, and stale ones are removed. A real file in the way is moved to `~/.jstack-backup/<timestamp>/`. `just uninstall` removes only jstack's links. Start a new session after installing.
+It is idempotent. Every link that points into this repository is managed by it, and stale ones are removed. A real file in the way is moved to `~/.jstack-backup/<timestamp>/`. `just uninstall <agent>` removes only jstack's links from that agent. Start a new session after installing.
 
 ## Get started
 
@@ -95,10 +96,10 @@ Plus 24 `principle-*` skills, one rule each, indexed inline by `/jstack`.
 Editing a skill is editing its file here. Installed copies are links, so a change applies from the next session.
 
 ```bash
-just check      # frontmatter, links, and leftovers from the Cursor original
-just install    # after adding or removing a skill or agent
-just deps       # once, before the bun tests
-just ci         # check, then the bun tests and the typecheck
+just check            # frontmatter, links, and leftovers from the Cursor original
+just install <agent>  # after adding or removing a skill or agent (claude | opencode)
+just deps             # once, before the bun tests
+just ci               # check, then the bun tests and the typecheck
 ```
 
 New skills follow the [Authoring a skill](skills/jstack/playbooks/authoring-a-skill.md) playbook.
